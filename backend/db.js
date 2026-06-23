@@ -1,16 +1,35 @@
-const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+
+// If SUPABASE_URL and SUPABASE_KEY are present, we operate in Supabase mode.
+// Otherwise we fall back to MySQL mode (current behavior).
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
+const IS_SUPABASE_MODE = !!(SUPABASE_URL && SUPABASE_KEY);
+
+let pool;
+
+// MySQL dependencies are loaded only in MySQL mode.
+let mysql;
+if (!IS_SUPABASE_MODE) {
+  mysql = require('mysql2/promise');
+}
 
 const DB_HOST = process.env.DB_HOST || 'localhost';
 const DB_USER = process.env.DB_USER || 'root';
 const DB_PASSWORD = process.env.DB_PASSWORD || '';
 const DB_NAME = process.env.DB_NAME || 'financial_assistance';
 
-let pool;
 
 async function initializeDatabase() {
+  // Supabase mode: don’t create MySQL tables.
+  if (IS_SUPABASE_MODE) {
+    console.log('Running in Supabase mode. Skipping MySQL initialization/seeding.');
+    pool = null;
+    return;
+  }
+
   try {
     // Connect without database to create it if it doesn't exist
     const connection = await mysql.createConnection({
@@ -53,6 +72,7 @@ async function initializeDatabase() {
     pool = null;
   }
 }
+
 
 
 async function createTables() {
@@ -710,12 +730,19 @@ async function seedLocalJobs() {
 
 initializeDatabase();
 
-module.exports = {
-  query: async (text, params) => {
-    if (!pool) {
-      throw new Error('Database pool is not initialized (MySQL connection failed).');
-    }
-    return pool.query(text, params);
-  },
-  getPool: () => pool
-};
+// In Supabase mode, forward DB operations to a limited adapter.
+if (IS_SUPABASE_MODE) {
+  const supabaseAdapter = require('./postgresAdapter');
+  module.exports = supabaseAdapter;
+} else {
+  module.exports = {
+    query: async (text, params) => {
+      if (!pool) {
+        throw new Error('Database pool is not initialized (MySQL connection failed).');
+      }
+      return pool.query(text, params);
+    },
+    getPool: () => pool
+  };
+}
+
