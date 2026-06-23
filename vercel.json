@@ -1,9 +1,7 @@
 {
   "version": 2,
   "framework": "vite",
-  "experimental": {
-    "multiService": true
-  },
+
   "services": {
     "frontend": {
       "rootDirectory": "frontend",
