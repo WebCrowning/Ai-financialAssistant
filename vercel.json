@@ -1,18 +1,5 @@
 {
   "version": 2,
-  "framework": "vite",
-
-  "services": {
-    "frontend": {
-      "rootDirectory": "frontend",
-      "routePrefix": "/",
-      "framework": "vite"
-    },
-    "backend": {
-      "rootDirectory": "backend",
-      "routePrefix": "/_/backend",
-      "entrypoint": "server.js"
-    }
-  }
+  "framework": "vite"
 }
 
