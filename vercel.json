@@ -1,13 +1,19 @@
 {
-  "experimentalServices": {
+  "version": 2,
+  "framework": "vite",
+  "experimental": {
+    "multiService": true
+  },
+  "services": {
     "frontend": {
-      "root": "frontend",
+      "rootDirectory": "frontend",
       "routePrefix": "/",
       "framework": "vite"
     },
     "backend": {
-      "root": "backend",
-      "routePrefix": "/_/backend"
+      "rootDirectory": "backend",
+      "routePrefix": "/_/backend",
+      "entrypoint": "server.js"
     }
   }
 }
