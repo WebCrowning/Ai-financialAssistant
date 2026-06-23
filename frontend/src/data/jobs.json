@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1,
+    "title": "Junior Web Developer",
+    "company": "Tech Solutions CM",
+    "location": "Douala",
+    "salary": "CFA 120,000 / month",
+    "description": "Assist in developing and maintaining web applications using React and Node.js."
+  },
+  {
+    "id": 2,
+    "title": "Customer Service Representative",
+    "company": "TeleCom CM Ltd",
+    "location": "Yaoundé",
+    "salary": "CFA 80,000 / month",
+    "description": "Handle customer inquiries via phone and email, resolve issues, and maintain records."
+  },
+  {
+    "id": 3,
+    "title": "Data Entry Clerk",
+    "company": "Finance Corp CM",
+    "location": "Bafoussam",
+    "salary": "CFA 60,000 / month",
+    "description": "Enter financial data into internal systems, ensure accuracy and timely updates."
+  }
+]
