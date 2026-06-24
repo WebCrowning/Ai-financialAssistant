@@ -17,43 +17,65 @@ export default function Login({ onLoginSuccess, initialIsLogin = true, onBackToL
     setError('');
     setLoading(true);
 
-    const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-    const payload = isLogin 
-      ? { email, password } 
-      : { email, password, monthlyIncome: parseFloat(monthlyIncome) || 0, role };
-
     try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      // Parse JSON safely; handle empty or non-JSON responses
-      let data = null;
-      try {
-        data = await response.json();
-      } catch (e) {
-        // response might be empty or not JSON
-      }
-      if (!response.ok) {
-        const errMsg = (data && data.message) ? data.message : 'Authentication failed';
-        throw new Error(errMsg);
-      }
-      if (!data) {
-        throw new Error('Empty response from server');
+      // Supabase Auth (frontend)
+      // Requires VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY in your Vercel environment.
+      if (!import.meta.env?.VITE_SUPABASE_URL) {
+        throw new Error('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
       }
 
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      if (typeof onLoginSuccess === 'function') {
-        onLoginSuccess(data.user, data.token);
+      // Lazy import to avoid breaking build if deps/env missing
+      const { supabase } = await import('../supabaseClient');
+      if (!supabase) {
+        throw new Error('Supabase client not initialized. Check env vars.');
+      }
+
+      if (isLogin) {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+
+        // Use access token for your existing backend JWT flow.
+        // If your backend is fully Supabase-only, you may remove this and switch other endpoints too.
+        const accessToken = data.session?.access_token;
+        const user = data.user;
+
+        if (!accessToken || !user) {
+          throw new Error('Login succeeded but session/access token is missing.');
+        }
+
+        localStorage.setItem('token', accessToken);
+        localStorage.setItem('user', JSON.stringify({
+          id: user.id,
+          email: user.email,
+        }));
+
+        if (typeof onLoginSuccess === 'function') {
+          onLoginSuccess({ email: user.email }, accessToken);
+        } else {
+          window.location.reload();
+        }
       } else {
-        // If no callback is provided, refresh to re-evaluate auth state
-        window.location.reload();
+        // Create account via Supabase
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              monthly_income: parseFloat(monthlyIncome) || 0,
+              role,
+            }
+          }
+        });
+        if (error) throw error;
+
+        // If email confirmations are enabled, session might be null.
+        setError(data.user ? 'Account created. Please confirm your email (if confirmation is enabled).' : 'Account created.');
       }
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Authentication failed');
     } finally {
       setLoading(false);
     }
