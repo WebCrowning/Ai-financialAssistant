@@ -1,6 +1,7 @@
 # FinVision — AI-Powered Personal Finance Dashboard & Assistant
 
-FinVision is a modern, premium glassmorphic web application built with **React**, **Node.js/Express**, and **MySQL**. It features real-time financial tracking, budget configurations, simulated automated receipt scanning, saving milestones with money transfer options, and an AI assistant providing predictive expenditure forecasts and overspending shields.
+FinVision is a modern, premium glassmorphic web application built with **React**, **Node.js/Express**, and **MySQL** (or **Supabase** when configured).
+
 
 ---
 
