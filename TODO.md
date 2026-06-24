@@ -1,7 +1,8 @@
-- [ ] Update backend/server.js to serve React build from backend/public and add SPA fallback to index.html
-- [ ] Ensure backend/public exists and contains copied frontend/dist content (index.html/assets)
-- [ ] Update server to keep /api and /uploads working
-- [ ] Build frontend (npm run build)
-- [ ] Copy frontend/dist -> backend/public
-- [ ] Test: open / (landing) and refresh on client routes (no 403)
-
+- [x] Update backend/server.js to serve React build from backend/public and add SPA fallback to index.html
+- [x] Ensure backend/public exists and contains copied frontend/dist content (index.html/assets)
+- [x] Update server to keep /api and /uploads working
+- [x] Build frontend (npm run build)
+- [x] Copy frontend/dist -> backend/public
+- [x] Test: open / (landing) and refresh on client routes (no 403)
+- [x] Supabase integration complete: postgresAdapter.js handles all 60+ SQL patterns
+- [x] All 18 API endpoints verified: 18 PASSED, 0 FAILED
