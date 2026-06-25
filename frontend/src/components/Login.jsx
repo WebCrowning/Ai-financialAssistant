@@ -30,33 +30,27 @@ export default function Login({ onLoginSuccess, initialIsLogin = true, onBackToL
       }
 
         if (isLogin) {
-        const response = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
         });
+        if (error) throw error;
 
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data?.message || 'Login failed');
-        }
+        const accessToken = data.session?.access_token;
+        const user = data.user;
+        if (!user) throw new Error('Login succeeded but user data is missing.');
 
-        const { token, user } = data;
-        if (!token || !user) {
-          throw new Error('Login succeeded but backend response is missing token/user.');
-        }
-
-        // Store backend JWT and user info
-        localStorage.setItem('token', token);
+        // Store token/user for frontend usage
+        localStorage.setItem('token', accessToken || 'fallback-token');
         localStorage.setItem('user', JSON.stringify({
           id: user.id,
           email: user.email,
-          role: user.role,
-          guardian_mode: user.guardian_mode
+          role: user.user_metadata?.role || 'user',
+          guardian_mode: user.user_metadata?.guardian_mode ?? 1
         }));
 
         if (typeof onLoginSuccess === 'function') {
-          onLoginSuccess({ email: user.email }, token);
+          onLoginSuccess({ email: user.email }, accessToken);
         } else {
           window.location.href = '/';
         }
