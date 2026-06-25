@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, Mail, UserPlus, LogIn, DollarSign } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 import '../styles/login.css';
 import logoImage from '../assets/logo.png';
 
@@ -24,8 +25,6 @@ export default function Login({ onLoginSuccess, initialIsLogin = true, onBackToL
         throw new Error('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
       }
 
-      // Lazy import to avoid breaking build if deps/env missing
-      const { supabase } = await import('../supabaseClient');
       if (!supabase) {
         throw new Error('Supabase client not initialized. Check env vars.');
       }
