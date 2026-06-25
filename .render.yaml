@@ -3,7 +3,7 @@ services:
     name: financial-assistance-backend
     env: node
     plan: free
-    buildCommand: npm install
-    startCommand: npm start
+    buildCommand: cd backend && npm install
+    startCommand: node server.js
     rootDir: backend
     autoDeploy: true
