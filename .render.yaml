@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: financial-assistance-backend
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    rootDir: backend
+    autoDeploy: true
