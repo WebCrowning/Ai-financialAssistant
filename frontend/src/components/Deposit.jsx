@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
+
 
 // Font Awesome CDN (added to index.html)
 const mtnIcon = '/MTN.png';
@@ -67,7 +69,8 @@ export default function Deposit({ token, user }) {
 
   useEffect(() => {
     fetchDepositHistory();
-  }, [token]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, user]);
 
   const showAlert = (message, type = 'success') => {
     setAlertMsg(message);
@@ -77,16 +80,22 @@ export default function Deposit({ token, user }) {
 
   const fetchDepositHistory = async () => {
     try {
-      const response = await fetch('/api/deposits', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setDepositHistory(data);
-      }
+      const resolvedUserId =
+        user?.id ||
+        localStorage.getItem('userId') ||
+        localStorage.getItem('user_id') ||
+        JSON.parse(localStorage.getItem('user') || 'null')?.id;
+
+      if (!resolvedUserId) return;
+
+      const { data, error } = await supabase
+        .from('deposits')
+        .select('*')
+        .eq('user_id', resolvedUserId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setDepositHistory(data || []);
     } catch (error) {
       console.error('Error fetching deposit history:', error);
     }
@@ -204,21 +213,25 @@ export default function Deposit({ token, user }) {
 
         // Record the deposit as pending
         try {
-          await fetch('/api/deposits', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              amount: parseFloat(amount),
-              phone: phoneNumber,
-              provider: selectedProvider,
-              reference: data.reference,
-              status: 'pending',
-              operator: data.operator || selectedProvider
-            })
+          const resolvedUserId =
+            user?.id ||
+            localStorage.getItem('userId') ||
+            localStorage.getItem('user_id') ||
+            JSON.parse(localStorage.getItem('user') || 'null')?.id;
+
+          if (!resolvedUserId) throw new Error('User not authenticated');
+
+          const { error: insertErr } = await supabase.from('deposits').insert({
+            user_id: resolvedUserId,
+            amount: parseFloat(amount),
+            phone: phoneNumber,
+            provider: selectedProvider,
+            reference: data.reference,
+            status: 'pending',
+            operator: data.operator || selectedProvider
           });
+
+          if (insertErr) throw insertErr;
         } catch (err) {
           console.error('Error recording pending deposit:', err);
         }
@@ -261,30 +274,44 @@ export default function Deposit({ token, user }) {
     
     // Record deposit as completed
     try {
-      const depositRecord = await fetch('/api/deposits', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+      const resolvedUserId =
+        user?.id ||
+        localStorage.getItem('userId') ||
+        localStorage.getItem('user_id') ||
+        JSON.parse(localStorage.getItem('user') || 'null')?.id;
+
+      if (!resolvedUserId) throw new Error('User not authenticated');
+
+      // Upsert by reference if possible; fallback to insert
+      const { error: updErr } = await supabase
+        .from('deposits')
+        .update({
+          status: 'completed',
+          operator: selectedProvider
+        })
+        .eq('user_id', resolvedUserId)
+        .eq('reference', transactionId);
+
+      if (updErr) {
+        const { error: insErr } = await supabase.from('deposits').insert({
+          user_id: resolvedUserId,
           amount: parseFloat(amount),
           phone: phoneNumber,
           provider: selectedProvider,
           reference: transactionId,
           status: 'completed',
           operator: selectedProvider
-        })
-      });
-
-      if (depositRecord.ok) {
-        showAlert(`✅ Successfully deposited CFA ${parseFloat(amount).toLocaleString()}!`, 'success');
-        setAmount('');
-        setPhoneNumber('');
-        fetchDepositHistory();
+        });
+        if (insErr) throw insErr;
       }
+
+      showAlert(`✅ Successfully deposited CFA ${parseFloat(amount).toLocaleString()}!`, 'success');
+      setAmount('');
+      setPhoneNumber('');
+      fetchDepositHistory();
     } catch (err) {
       console.error('Error recording deposit:', err);
+      showAlert('Failed to record deposit', 'error');
     }
   };
 
@@ -330,32 +357,42 @@ export default function Deposit({ token, user }) {
       if (response.ok || data.status === 'success' || data.success === true) {
         // Record deposit as completed
         try {
-          const depositRecord = await fetch('/api/deposits', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
+          const resolvedUserId =
+            user?.id ||
+            localStorage.getItem('userId') ||
+            localStorage.getItem('user_id') ||
+            JSON.parse(localStorage.getItem('user') || 'null')?.id;
+
+          if (!resolvedUserId) throw new Error('User not authenticated');
+
+          const { error: updErr } = await supabase
+            .from('deposits')
+            .update({
+              status: 'completed',
+              operator: selectedProvider
+            })
+            .eq('user_id', resolvedUserId)
+            .eq('reference', transactionId);
+
+          if (updErr) {
+            const { error: insErr } = await supabase.from('deposits').insert({
+              user_id: resolvedUserId,
               amount: parseFloat(amount),
               phone: phoneNumber,
               provider: selectedProvider,
               reference: transactionId,
-              status: 'completed'
-            })
-          });
-
-          if (depositRecord.ok) {
-            showAlert(`✅ Successfully deposited CFA ${parseFloat(amount).toLocaleString()}!`, 'success');
-            setShowOTPModal(false);
-            setOtpCode('');
-            setAmount('');
-            setPhoneNumber('');
-            fetchDepositHistory();
-          } else {
-            const errorData = await depositRecord.json();
-            showAlert(`Deposit completed but record failed: ${errorData.message || 'Unknown error'}`, 'warning');
+              status: 'completed',
+              operator: selectedProvider
+            });
+            if (insErr) throw insErr;
           }
+
+          showAlert(`✅ Successfully deposited CFA ${parseFloat(amount).toLocaleString()}!`, 'success');
+          setShowOTPModal(false);
+          setOtpCode('');
+          setAmount('');
+          setPhoneNumber('');
+          fetchDepositHistory();
         } catch (err) {
           console.error('Error recording deposit:', err);
           showAlert('Deposit completed but failed to record. Please contact support.', 'warning');

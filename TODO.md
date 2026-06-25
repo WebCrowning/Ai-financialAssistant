@@ -1,8 +1,23 @@
-- [x] Update backend/server.js to serve React build from backend/public and add SPA fallback to index.html
-- [x] Ensure backend/public exists and contains copied frontend/dist content (index.html/assets)
-- [x] Update server to keep /api and /uploads working
-- [x] Build frontend (npm run build)
-- [x] Copy frontend/dist -> backend/public
-- [x] Test: open / (landing) and refresh on client routes (no 403)
-- [x] Supabase integration complete: postgresAdapter.js handles all 60+ SQL patterns
-- [x] All 18 API endpoints verified: 18 PASSED, 0 FAILED
+# TODO
+
+## GitHub + Supabase refactor
+
+### Step 1: Remove remaining `/api/expenses` + `/api/income*`
+- ✅ Completed: `frontend/src/components/Transactions.jsx`
+- ✅ Completed: `frontend/src/components/IncomeLogger.jsx`
+
+### Step 2: Fix Vercel 502 (rewrite architecture)
+- ⏳ Update `vercel.json` to remove `/api/*` rewrites if using Supabase directly
+  - Remove: `source: "/api/:path*"`
+  - Remove: `source: "/uploads/:path*"` unless backend serves uploads
+- ⏳ Redeploy frontend
+
+### Step 3: Replace remaining `/api/*` calls
+- ⏳ Deposit.jsx: `/api/deposits` → Supabase `deposits` table
+- ⏳ VirtualCards.jsx: `/api/auth/me` + `/api/virtual-cards*` → Supabase
+- ⏳ StoreSimulation.jsx: `/api/store/*` + `/api/store/purchase` → Supabase
+- ⏳ ChatbotAnalytics* pages: `/api/chatbot-analytics/*` → Supabase
+
+### Step 4: Commit + push
+- ⏳ Commit changes on a `blackboxai/` branch and push
+

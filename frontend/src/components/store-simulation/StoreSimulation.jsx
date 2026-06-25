@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../../supabaseClient';
 import {
   Search, ShoppingCart, ShoppingBag, Plus, Minus, Trash2, X,
   CreditCard, ChevronRight, CheckCircle2, AlertTriangle, ArrowLeft,
-  Calendar, FileText, Star, Shield, Info, Printer, RefreshCw, Eye
+  FileText, Star, Shield, Info, Printer, RefreshCw, Eye
 } from 'lucide-react';
 
 const COLORS = {
@@ -36,7 +37,7 @@ const COLORS = {
   ]
 };
 
-// Seeding address generation helper like in VirtualCards
+// Seeding address generation helper
 const ADDRESS_DATA = {
   streets: ['1200 Market Street', '4500 Westheimer Road', '7890 Peachtree Boulevard', '2350 Michigan Avenue', '6100 Wilshire Boulevard'],
   suites: ['Suite 100', 'Suite 200', 'Suite 305', 'Suite 410', 'Unit A'],
@@ -51,7 +52,6 @@ const ADDRESS_DATA = {
 function generateSeededAddress(cardId, holderName) {
   if (!cardId) return `${holderName}\n1200 Market Street, Suite 100\nNew York, NY 10001\nUnited States`;
 
-  // Quick hash
   let hash = 0;
   const s = String(cardId);
   for (let i = 0; i < s.length; i++) hash = ((hash << 5) - hash + s.charCodeAt(i)) | 0;
@@ -65,8 +65,16 @@ function generateSeededAddress(cardId, holderName) {
   return `${holderName}\n${street}, ${suite}\n${cityInfo.city}, ${cityInfo.state} ${fullZip}\nUnited States`;
 }
 
-// Visual Card rendering inside Checkout
-function CheckoutCard({ cardName, cardNumber, cardHolder, expiryDate, cvv, cardType, colorIndex, isFlipped }) {
+function CheckoutCard({
+  cardName,
+  cardNumber,
+  cardHolder,
+  expiryDate,
+  cvv,
+  cardType,
+  colorIndex,
+  isFlipped
+}) {
   const maskCardNumber = (num) => {
     if (!num) return '•••• •••• •••• ••••';
     const digits = String(num).replace(/\D/g, '');
@@ -76,30 +84,33 @@ function CheckoutCard({ cardName, cardNumber, cardHolder, expiryDate, cvv, cardT
   const gradient = COLORS.cardGradients[colorIndex % COLORS.cardGradients.length] || COLORS.cardGradients[0];
 
   return (
-    <div style={{
-      width: '100%',
-      height: '190px',
-      borderRadius: '16px',
-      background: gradient,
-      boxShadow: '0 12px 24px -6px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.1)',
-      position: 'relative',
-      overflow: 'hidden',
-      color: 'white',
-      fontFamily: "'Inter', sans-serif",
-      transition: 'transform 0.5s ease',
-      transformStyle: 'preserve-3d',
-      transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
-    }}>
+    <div
+      style={{
+        width: '100%',
+        height: '190px',
+        borderRadius: '16px',
+        background: gradient,
+        boxShadow: '0 12px 24px -6px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.1)',
+        position: 'relative',
+        overflow: 'hidden',
+        color: 'white',
+        fontFamily: "'Inter', sans-serif",
+        transition: 'transform 0.5s ease',
+        transformStyle: 'preserve-3d',
+        transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
+      }}
+    >
       {!isFlipped ? (
-        /* Front */
-        <div style={{
-          padding: '20px',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          backfaceVisibility: 'hidden'
-        }}>
+        <div
+          style={{
+            padding: '20px',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            backfaceVisibility: 'hidden'
+          }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <span style={{ fontSize: '12px', fontWeight: 600, opacity: 0.8, letterSpacing: '0.05em' }}>
               {cardName || 'VIRTUAL CARD'}
@@ -107,13 +118,15 @@ function CheckoutCard({ cardName, cardNumber, cardHolder, expiryDate, cvv, cardT
             <span style={{ fontSize: '14px', fontWeight: 800 }}>FinVision</span>
           </div>
 
-          <div style={{
-            fontSize: '18px',
-            fontFamily: 'monospace',
-            letterSpacing: '0.12em',
-            margin: '20px 0 10px 0',
-            textAlign: 'center'
-          }}>
+          <div
+            style={{
+              fontSize: '18px',
+              fontFamily: 'monospace',
+              letterSpacing: '0.12em',
+              margin: '20px 0 10px 0',
+              textAlign: 'center'
+            }}
+          >
             {maskCardNumber(cardNumber)}
           </div>
 
@@ -126,33 +139,63 @@ function CheckoutCard({ cardName, cardNumber, cardHolder, expiryDate, cvv, cardT
             </div>
             <div>
               <div style={{ fontSize: '8px', opacity: 0.6, marginBottom: '2px' }}>EXPIRES</div>
-              <div style={{ fontSize: '12px', fontWeight: 600, fontFamily: 'monospace' }}>
-                {expiryDate || 'MM/YY'}
-              </div>
+              <div style={{ fontSize: '12px', fontWeight: 600, fontFamily: 'monospace' }}>{expiryDate || 'MM/YY'}</div>
             </div>
-            <div style={{ textTransform: 'uppercase', fontSize: '14px', fontWeight: 800, fontStyle: 'italic', opacity: 0.9 }}>
+            <div
+              style={{
+                textTransform: 'uppercase',
+                fontSize: '14px',
+                fontWeight: 800,
+                fontStyle: 'italic',
+                opacity: 0.9
+              }}
+            >
               {cardType || 'visa'}
             </div>
           </div>
         </div>
       ) : (
-        /* Back */
-        <div style={{
-          padding: '0',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          transform: 'rotateY(180deg)',
-          backfaceVisibility: 'hidden'
-        }}>
+        <div
+          style={{
+            padding: '0',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            transform: 'rotateY(180deg)',
+            backfaceVisibility: 'hidden'
+          }}
+        >
           <div style={{ width: '100%', height: '35px', background: '#111', marginBottom: '15px' }} />
 
           <div style={{ margin: '0 20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ flex: 1, height: '30px', background: '#ddd', borderRadius: '2px', display: 'flex', alignItems: 'center', paddingLeft: '10px', color: '#333', fontSize: '12px', fontStyle: 'italic' }}>
+            <div
+              style={{
+                flex: 1,
+                height: '30px',
+                background: '#ddd',
+                borderRadius: '2px',
+                display: 'flex',
+                alignItems: 'center',
+                paddingLeft: '10px',
+                color: '#333',
+                fontSize: '12px',
+                fontStyle: 'italic'
+              }}
+            >
               {cardHolder}
             </div>
-            <div style={{ background: 'white', color: '#111', padding: '6px 10px', borderRadius: '2px', fontFamily: 'monospace', fontWeight: 800, fontSize: '14px' }}>
+            <div
+              style={{
+                background: 'white',
+                color: '#111',
+                padding: '6px 10px',
+                borderRadius: '2px',
+                fontFamily: 'monospace',
+                fontWeight: 800,
+                fontSize: '14px'
+              }}
+            >
               {cvv || '•••'}
             </div>
           </div>
@@ -167,29 +210,24 @@ function CheckoutCard({ cardName, cardNumber, cardHolder, expiryDate, cvv, cardT
 }
 
 export default function StoreSimulation({ token, user }) {
-  // Page state
   const [activeTab, setActiveTab] = useState('catalog');
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Filter/Search states
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortBy, setSortBy] = useState('popular');
 
-  // Shopping Cart state
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
 
-  // Modals state
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showCheckout, setShowCheckout] = useState(false);
-  const [checkoutStep, setCheckoutStep] = useState('billing'); // 'billing', 'payment', 'success'
+  const [checkoutStep, setCheckoutStep] = useState('billing');
   const [checkoutResult, setCheckoutResult] = useState(null);
 
-  // Checkout inputs
   const [cards, setCards] = useState([]);
   const [selectedCardId, setSelectedCardId] = useState('');
 
@@ -211,20 +249,29 @@ export default function StoreSimulation({ token, user }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Fetch initial products and orders
   useEffect(() => {
     fetchProducts();
     fetchOrders();
     fetchUserCards();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/store/products');
-      if (res.ok) {
-        setProducts(await res.json());
-      }
+      const resolvedUserId =
+        user?.id ||
+        localStorage.getItem('userId') ||
+        localStorage.getItem('user_id') ||
+        JSON.parse(localStorage.getItem('user') || 'null')?.id;
+
+      // products are typically public; if you have per-user products, add filtering.
+      const { data, error } = await supabase
+        .from('store_products')
+        .select('*');
+
+      if (error) throw error;
+      setProducts(data || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -234,12 +281,20 @@ export default function StoreSimulation({ token, user }) {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch('/api/store/orders', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        setOrders(await res.json());
-      }
+      const resolvedUserId =
+        user?.id ||
+        localStorage.getItem('userId') ||
+        localStorage.getItem('user_id') ||
+        JSON.parse(localStorage.getItem('user') || 'null')?.id;
+
+      const { data, error } = await supabase
+        .from('store_orders')
+        .select('*')
+        .eq('user_id', resolvedUserId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setOrders(data || []);
     } catch (err) {
       console.error(err);
     }
@@ -247,12 +302,20 @@ export default function StoreSimulation({ token, user }) {
 
   const fetchUserCards = async () => {
     try {
-      const res = await fetch('/api/virtual-cards', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        setCards(await res.json());
-      }
+      const resolvedUserId =
+        user?.id ||
+        localStorage.getItem('userId') ||
+        localStorage.getItem('user_id') ||
+        JSON.parse(localStorage.getItem('user') || 'null')?.id;
+
+      const { data, error } = await supabase
+        .from('virtual_cards')
+        .select('*')
+        .eq('user_id', resolvedUserId)
+        .order('id', { ascending: true });
+
+      if (error) throw error;
+      setCards(data || []);
     } catch (err) {
       console.error(err);
     }
@@ -264,12 +327,11 @@ export default function StoreSimulation({ token, user }) {
     setRefreshing(false);
   };
 
-  // Cart operations
   const addToCart = (product, quantity = 1) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.id === product.id);
+    setCart((prev) => {
+      const existing = prev.find((item) => item.id === product.id);
       if (existing) {
-        return prev.map(item =>
+        return prev.map((item) =>
           item.id === product.id
             ? { ...item, quantity: Math.min(item.quantity + quantity, product.stock) }
             : item
@@ -282,31 +344,34 @@ export default function StoreSimulation({ token, user }) {
   };
 
   const updateCartQty = (id, change) => {
-    setCart(prev => prev.map(item => {
-      if (item.id === id) {
-        const nextQty = item.quantity + change;
-        if (nextQty <= 0) return null;
-        return { ...item, quantity: Math.min(nextQty, item.stock) };
-      }
-      return item;
-    }).filter(Boolean));
+    setCart((prev) =>
+      prev
+        .map((item) => {
+          if (item.id === id) {
+            const nextQty = item.quantity + change;
+            if (nextQty <= 0) return null;
+            return { ...item, quantity: Math.min(nextQty, item.stock) };
+          }
+          return item;
+        })
+        .filter(Boolean)
+    );
   };
 
   const removeFromCart = (id) => {
-    setCart(prev => prev.filter(item => item.id !== id));
+    setCart((prev) => prev.filter((item) => item.id !== id));
   };
 
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const cartSubtotal = cart.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+  const cartSubtotal = cart.reduce((sum, item) => sum + parseFloat(item.price) * item.quantity, 0);
 
-  // Auto-fill checkout fields when a card is selected
   const handleCardSelectChange = (e) => {
     const cardId = e.target.value;
     setSelectedCardId(cardId);
     setErrorMsg('');
 
     if (cardId === '') {
-      setCheckoutForm(prev => ({
+      setCheckoutForm((prev) => ({
         ...prev,
         cardHolder: '',
         cardNumber: '',
@@ -317,9 +382,9 @@ export default function StoreSimulation({ token, user }) {
       return;
     }
 
-    const card = cards.find(c => String(c.id) === String(cardId));
+    const card = cards.find((c) => String(c.id) === String(cardId));
     if (card) {
-      setCheckoutForm(prev => ({
+      setCheckoutForm((prev) => ({
         ...prev,
         cardHolder: card.card_holder,
         cardNumber: card.card_number,
@@ -328,14 +393,13 @@ export default function StoreSimulation({ token, user }) {
         cardType: card.card_type
       }));
 
-      // Set billing/shipping default address
       const seeded = generateSeededAddress(card.id, card.card_holder);
       const lines = seeded.split('\n');
       const cityStateZip = lines[2] ? lines[2].split(', ') : ['', ''];
       const city = cityStateZip[0] || '';
       const stateZip = cityStateZip[1] ? cityStateZip[1].split(' ') : ['', ''];
 
-      setCheckoutForm(prev => ({
+      setCheckoutForm((prev) => ({
         ...prev,
         shippingName: card.card_holder,
         shippingAddress: lines[1] || '',
@@ -346,11 +410,17 @@ export default function StoreSimulation({ token, user }) {
     }
   };
 
-  // Submit order checkout
   const handleCheckoutSubmit = async (e) => {
     e.preventDefault();
+
     if (checkoutStep === 'billing') {
-      if (!checkoutForm.shippingName || !checkoutForm.shippingAddress || !checkoutForm.shippingCity || !checkoutForm.shippingState || !checkoutForm.shippingZip) {
+      if (
+        !checkoutForm.shippingName ||
+        !checkoutForm.shippingAddress ||
+        !checkoutForm.shippingCity ||
+        !checkoutForm.shippingState ||
+        !checkoutForm.shippingZip
+      ) {
         setErrorMsg('Please complete all shipping address fields.');
         return;
       }
@@ -359,7 +429,6 @@ export default function StoreSimulation({ token, user }) {
       return;
     }
 
-    // Payment validation
     if (!checkoutForm.cardNumber || !checkoutForm.expiryDate || !checkoutForm.cvv || !checkoutForm.cardHolder) {
       setErrorMsg('Please complete all payment fields.');
       return;
@@ -380,7 +449,7 @@ export default function StoreSimulation({ token, user }) {
           expiry_date: checkoutForm.expiryDate,
           cvv: checkoutForm.cvv,
           card_holder: checkoutForm.cardHolder,
-          items: cart.map(item => ({
+          items: cart.map((item) => ({
             id: item.id,
             name: item.name,
             quantity: item.quantity,
@@ -396,14 +465,14 @@ export default function StoreSimulation({ token, user }) {
           orderId: data.orderId,
           date: new Date().toLocaleDateString(),
           total: cartSubtotal,
-          cardUsedName: cards.find(c => String(c.id) === String(selectedCardId))?.card_name || 'Virtual Card',
+          cardUsedName: cards.find((c) => String(c.id) === String(selectedCardId))?.card_name || 'Virtual Card',
           cardUsedNumber: checkoutForm.cardNumber.slice(-4),
           shipping: checkoutForm
         });
-        setCart([]); // Clear cart
+        setCart([]);
         setCheckoutStep('success');
-        fetchOrders(); // Refresh orders list
-        fetchUserCards(); // Refresh cards to update limits
+        fetchOrders();
+        fetchUserCards();
       } else {
         setErrorMsg(data.message || 'Payment processing failed.');
       }
@@ -417,12 +486,12 @@ export default function StoreSimulation({ token, user }) {
 
   const openCheckout = () => {
     if (cart.length === 0) return;
+
     setIsCartOpen(false);
     setShowCheckout(true);
     setCheckoutStep('billing');
     setErrorMsg('');
 
-    // Pre-fill user billing/shipping address from profile if possible
     const displayName = user.display_name || user.email?.split('@')[0] || 'Customer';
     setCheckoutForm({
       cardHolder: '',
@@ -439,14 +508,14 @@ export default function StoreSimulation({ token, user }) {
     setSelectedCardId('');
 
     // Must use primary card only
-    const primary = cards.find(c => Number(c.is_primary) === 1);
+    const primary = cards.find((c) => Number(c.is_primary) === 1);
     if (!primary) {
       setErrorMsg('Please set a Primary virtual card in Virtual Cards first.');
       return;
     }
 
-    // Select the primary card
     setSelectedCardId(primary.id);
+
     const seeded = generateSeededAddress(primary.id, primary.card_holder);
     const lines = seeded.split('\n');
     const cityStateZip = lines[2] ? lines[2].split(', ') : ['', ''];
@@ -467,10 +536,10 @@ export default function StoreSimulation({ token, user }) {
     });
   };
 
-  // Catalog item search & sorting logic
   const filteredProducts = products
-    .filter(p => {
-      const matchSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    .filter((p) => {
+      const matchSearch =
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.description.toLowerCase().includes(searchTerm.toLowerCase());
       const matchCat = selectedCategory === 'All' || p.category === selectedCategory;
       return matchSearch && matchCat;
@@ -479,23 +548,20 @@ export default function StoreSimulation({ token, user }) {
       if (sortBy === 'price-low') return parseFloat(a.price) - parseFloat(b.price);
       if (sortBy === 'price-high') return parseFloat(b.price) - parseFloat(a.price);
       if (sortBy === 'name') return a.name.localeCompare(b.name);
-      return 0; // popular/default
+      return 0;
     });
 
   const categories = ['All', 'Laptops', 'Phones', 'Wearables', 'Audio', 'Accessories'];
 
-  const formatPrice = (price) => {
-    return `CFA ${parseFloat(price).toLocaleString('en-US')}`;
-  };
+  const formatPrice = (price) => `CFA ${parseFloat(price).toLocaleString('en-US')}`;
 
   const getCardColor = (cId) => {
-    const card = cards.find(c => c.id === cId);
+    const card = cards.find((c) => c.id === cId);
     return card ? card.card_color : 0;
   };
 
   return (
     <div style={styles.container}>
-      {/* Success alert message toast */}
       {successMsg && (
         <div style={styles.toast}>
           <CheckCircle2 size={16} />
@@ -503,7 +569,6 @@ export default function StoreSimulation({ token, user }) {
         </div>
       )}
 
-      {/* Store Header */}
       <header style={styles.header}>
         <div style={styles.headerLeft}>
           <div style={styles.headerIconWrapper}>
@@ -515,10 +580,7 @@ export default function StoreSimulation({ token, user }) {
           </div>
         </div>
         <div style={styles.headerRight}>
-          <button
-            onClick={() => setActiveTab(activeTab === 'catalog' ? 'orders' : 'catalog')}
-            style={styles.ordersTabBtn}
-          >
+          <button onClick={() => setActiveTab(activeTab === 'catalog' ? 'orders' : 'catalog')} style={styles.ordersTabBtn}>
             <FileText size={16} />
             {activeTab === 'catalog' ? 'Order History' : 'Back to Store'}
           </button>
@@ -535,22 +597,19 @@ export default function StoreSimulation({ token, user }) {
         </div>
       </header>
 
-      {/* Main Content Area */}
       {activeTab === 'catalog' ? (
         <div>
-          {/* Hero Banner banner */}
           <div style={styles.heroBanner}>
             <div style={styles.heroOverlay} />
             <div style={styles.heroContent}>
               <span style={styles.heroBadge}>Virtual Sandbox Store</span>
               <h2 style={styles.heroTitle}>Spend Limit Testing Suite</h2>
               <p style={styles.heroDescription}>
-                Need to test a card transaction? Browse our mock electronics catalog, load up a cart, and execute checkout checks safely using mock credit cards. All receipts will log directly to your transaction ledgers.
+                Need to test a card transaction? Browse our mock electronics catalog, load up a cart, and execute checkout checks safely using mock credit cards.
               </p>
             </div>
           </div>
 
-          {/* Filters and Searching */}
           <div style={styles.filterBar}>
             <div style={styles.searchWrapper}>
               <Search size={18} style={styles.searchIcon} />
@@ -558,17 +617,13 @@ export default function StoreSimulation({ token, user }) {
                 type="text"
                 placeholder="Search products, brands, specifications..."
                 value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 style={styles.searchInput}
               />
             </div>
             <div style={styles.sortingWrapper}>
               <span style={{ color: COLORS.gray[500], fontSize: '13px', fontWeight: '500' }}>Sort By:</span>
-              <select
-                value={sortBy}
-                onChange={e => setSortBy(e.target.value)}
-                style={styles.sortSelect}
-              >
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={styles.sortSelect}>
                 <option value="popular">Popularity</option>
                 <option value="price-low">Price: Low to High</option>
                 <option value="price-high">Price: High to Low</option>
@@ -577,9 +632,8 @@ export default function StoreSimulation({ token, user }) {
             </div>
           </div>
 
-          {/* Category Tabs */}
           <div style={styles.categoryTabs}>
-            {categories.map(cat => (
+            {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
@@ -593,21 +647,20 @@ export default function StoreSimulation({ token, user }) {
             ))}
           </div>
 
-          {/* Product Grid */}
           {loading ? (
             <div style={styles.loadingWrapper}>
               <div style={styles.spinner}></div>
-              <p style={{ marginTop: '16px', color: COLORS.gray[500] }}>Loading mock catalog catalog...</p>
+              <p style={{ marginTop: '16px', color: COLORS.gray[500] }}>Loading mock catalog...</p>
             </div>
           ) : filteredProducts.length === 0 ? (
             <div style={styles.emptyState}>
               <span style={{ fontSize: '48px' }}>🔍</span>
               <h3 style={styles.emptyTitle}>No Products Found</h3>
-              <p style={styles.emptyDesc}>Try adjusting your search criteria or select another category tab.</p>
+              <p style={styles.emptyDesc}>Try adjusting your search criteria.</p>
             </div>
           ) : (
             <div style={styles.productGrid}>
-              {filteredProducts.map(product => (
+              {filteredProducts.map((product) => (
                 <div key={product.id} style={styles.productCard}>
                   <div style={styles.cardImageWrapper}>
                     <img
@@ -615,16 +668,17 @@ export default function StoreSimulation({ token, user }) {
                       alt={product.name}
                       style={styles.productImage}
                       onError={(e) => {
-                        e.target.src = 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=500&q=80'; // fallback
+                        e.target.src = 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=500&q=80';
                       }}
                     />
                     <span style={styles.cardCategoryBadge}>{product.category}</span>
                   </div>
                   <div style={styles.cardBody}>
-                    <h3 style={styles.productTitle} title={product.name}>{product.name}</h3>
+                    <h3 style={styles.productTitle} title={product.name}>
+                      {product.name}
+                    </h3>
                     <p style={styles.productDesc}>{product.description}</p>
 
-                    {/* Star Rating visualization */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '16px' }}>
                       {[...Array(5)].map((_, i) => (
                         <Star key={i} size={14} fill={i < 4 ? '#eab308' : 'none'} stroke={i < 4 ? '#eab308' : COLORS.gray[300]} />
@@ -634,11 +688,7 @@ export default function StoreSimulation({ token, user }) {
 
                     <div style={styles.cardFooter}>
                       <span style={styles.productPrice}>{formatPrice(product.price)}</span>
-                      <button
-                        onClick={() => addToCart(product)}
-                        style={styles.addToCartBtn}
-                        disabled={product.stock <= 0}
-                      >
+                      <button onClick={() => addToCart(product)} style={styles.addToCartBtn} disabled={product.stock <= 0}>
                         {product.stock <= 0 ? 'Out of Stock' : 'Add to Cart'}
                       </button>
                     </div>
@@ -649,7 +699,6 @@ export default function StoreSimulation({ token, user }) {
           )}
         </div>
       ) : (
-        /* Orders History Panel */
         <div>
           <div style={styles.historyHeader}>
             <h2 style={styles.sectionTitle}>Completed Orders Ledger</h2>
@@ -660,7 +709,7 @@ export default function StoreSimulation({ token, user }) {
             <div style={styles.emptyState}>
               <span style={{ fontSize: '48px' }}>🛒</span>
               <h3 style={styles.emptyTitle}>No Order Records</h3>
-              <p style={styles.emptyDesc}>You haven't checked out any store items yet. Make a purchase to see records here.</p>
+              <p style={styles.emptyDesc}>You haven't checked out any store items yet.</p>
               <button onClick={() => setActiveTab('catalog')} style={styles.emptyStateBtn}>Go Shopping</button>
             </div>
           ) : (
@@ -677,11 +726,11 @@ export default function StoreSimulation({ token, user }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map(order => {
+                  {orders.map((order) => {
                     let items = [];
                     try {
                       items = JSON.parse(order.items_json);
-                    } catch (e) { }
+                    } catch (e) {}
 
                     return (
                       <tr key={order.id} style={styles.tableRow}>
@@ -695,16 +744,14 @@ export default function StoreSimulation({ token, user }) {
                             </span>
                           </div>
                         </td>
-                        <td style={{ fontWeight: '700', color: COLORS.danger }}>
-                          {formatPrice(order.total_amount)}
-                        </td>
+                        <td style={{ fontWeight: '700', color: COLORS.danger }}>{formatPrice(order.total_amount)}</td>
                         <td>
                           <span style={styles.statusBadgeSuccess}>COMPLETED</span>
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           <button
                             onClick={() => {
-                              const cardObj = cards.find(c => c.id === order.card_id) || {
+                              const cardObj = cards.find((c) => c.id === order.card_id) || {
                                 card_holder: order.card_holder || user.display_name || 'Customer',
                                 card_number: order.card_number || '•••• •••• •••• ••••',
                                 id: order.card_id
@@ -723,7 +770,7 @@ export default function StoreSimulation({ token, user }) {
                                   shippingZip: '10001'
                                 }
                               });
-                              setCart(items); // Load order items to display on receipt
+                              setCart(items);
                               setCheckoutStep('success');
                               setShowCheckout(true);
                             }}
@@ -743,10 +790,9 @@ export default function StoreSimulation({ token, user }) {
         </div>
       )}
 
-      {/* Flyout Shopping Cart Drawer */}
       {isCartOpen && (
         <div style={styles.cartOverlay} onClick={() => setIsCartOpen(false)}>
-          <div style={styles.cartDrawer} onClick={e => e.stopPropagation()}>
+          <div style={styles.cartDrawer} onClick={(e) => e.stopPropagation()}>
             <div style={styles.cartHeader}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <ShoppingCart size={20} />
@@ -762,11 +808,13 @@ export default function StoreSimulation({ token, user }) {
                 <div style={styles.cartEmpty}>
                   <span style={{ fontSize: '36px' }}>🧺</span>
                   <p style={{ marginTop: '12px', color: COLORS.gray[500] }}>Your cart is empty.</p>
-                  <button onClick={() => setIsCartOpen(false)} style={styles.cartShopBtn}>Start Browsing</button>
+                  <button onClick={() => setIsCartOpen(false)} style={styles.cartShopBtn}>
+                    Start Browsing
+                  </button>
                 </div>
               ) : (
                 <div style={styles.cartList}>
-                  {cart.map(item => (
+                  {cart.map((item) => (
                     <div key={item.id} style={styles.cartItem}>
                       <div style={styles.cartItemImgWrapper}>
                         <img src={item.image_url} alt={item.name} style={styles.cartItemImg} />
@@ -776,10 +824,7 @@ export default function StoreSimulation({ token, user }) {
                         <span style={styles.cartItemPrice}>{formatPrice(item.price)}</span>
 
                         <div style={styles.cartQtyControls}>
-                          <button
-                            onClick={() => updateCartQty(item.id, -1)}
-                            style={styles.qtyBtn}
-                          >
+                          <button onClick={() => updateCartQty(item.id, -1)} style={styles.qtyBtn}>
                             <Minus size={12} />
                           </button>
                           <span style={styles.qtyVal}>{item.quantity}</span>
@@ -792,11 +837,7 @@ export default function StoreSimulation({ token, user }) {
                           </button>
                         </div>
                       </div>
-                      <button
-                        onClick={() => removeFromCart(item.id)}
-                        style={styles.cartRemoveBtn}
-                        title="Remove Item"
-                      >
+                      <button onClick={() => removeFromCart(item.id)} style={styles.cartRemoveBtn} title="Remove Item">
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -824,7 +865,6 @@ export default function StoreSimulation({ token, user }) {
         </div>
       )}
 
-      {/* Checkout and Receipt Modal Container */}
       {showCheckout && (
         <div style={styles.modalOverlay}>
           <div style={styles.modal}>
@@ -837,10 +877,7 @@ export default function StoreSimulation({ token, user }) {
               <button
                 onClick={() => {
                   setShowCheckout(false);
-                  if (checkoutStep === 'success') {
-                    // reset cart just in case
-                    setCart([]);
-                  }
+                  if (checkoutStep === 'success') setCart([]);
                 }}
                 style={styles.closeBtn}
               >
@@ -858,7 +895,6 @@ export default function StoreSimulation({ token, user }) {
                 )}
 
                 <div style={styles.checkoutLayout}>
-                  {/* Form fields */}
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     {checkoutStep === 'billing' ? (
                       <>
@@ -870,7 +906,7 @@ export default function StoreSimulation({ token, user }) {
                             type="text"
                             style={styles.formInput}
                             value={checkoutForm.shippingName}
-                            onChange={e => setCheckoutForm({ ...checkoutForm, shippingName: e.target.value })}
+                            onChange={(e) => setCheckoutForm({ ...checkoutForm, shippingName: e.target.value })}
                             required
                           />
                         </div>
@@ -882,53 +918,55 @@ export default function StoreSimulation({ token, user }) {
                             style={styles.formInput}
                             placeholder="e.g. 1200 Market Street"
                             value={checkoutForm.shippingAddress}
-                            onChange={e => setCheckoutForm({ ...checkoutForm, shippingAddress: e.target.value })}
+                            onChange={(e) => setCheckoutForm({ ...checkoutForm, shippingAddress: e.target.value })}
                             required
                           />
                         </div>
 
                         <div style={styles.formRow}>
-                          <div style={{ ...styles.formGroup, flex: 2 }}>
-                            <label style={styles.formLabel}>City</label>
-                            <input
-                              type="text"
-                              style={styles.formInput}
-                              value={checkoutForm.shippingCity}
-                              onChange={e => setCheckoutForm({ ...checkoutForm, shippingCity: e.target.value })}
-                              required
-                            />
+                          <div style={{ flex: 2 }}>
+                            <div style={styles.formGroup}>
+                              <label style={styles.formLabel}>City</label>
+                              <input
+                                type="text"
+                                style={styles.formInput}
+                                value={checkoutForm.shippingCity}
+                                onChange={(e) => setCheckoutForm({ ...checkoutForm, shippingCity: e.target.value })}
+                                required
+                              />
+                            </div>
                           </div>
-                          <div style={{ ...styles.formGroup, flex: 1 }}>
-                            <label style={styles.formLabel}>State</label>
-                            <input
-                              type="text"
-                              style={styles.formInput}
-                              placeholder="NY"
-                              maxLength="2"
-                              value={checkoutForm.shippingState}
-                              onChange={e => setCheckoutForm({ ...checkoutForm, shippingState: e.target.value })}
-                              required
-                            />
+                          <div style={{ flex: 1 }}>
+                            <div style={styles.formGroup}>
+                              <label style={styles.formLabel}>State</label>
+                              <input
+                                type="text"
+                                style={styles.formInput}
+                                placeholder="NY"
+                                maxLength={2}
+                                value={checkoutForm.shippingState}
+                                onChange={(e) => setCheckoutForm({ ...checkoutForm, shippingState: e.target.value })}
+                                required
+                              />
+                            </div>
                           </div>
-                          <div style={{ ...styles.formGroup, flex: 1 }}>
-                            <label style={styles.formLabel}>Zip Code</label>
-                            <input
-                              type="text"
-                              style={styles.formInput}
-                              placeholder="10001"
-                              value={checkoutForm.shippingZip}
-                              onChange={e => setCheckoutForm({ ...checkoutForm, shippingZip: e.target.value })}
-                              required
-                            />
+                          <div style={{ flex: 1 }}>
+                            <div style={styles.formGroup}>
+                              <label style={styles.formLabel}>Zip Code</label>
+                              <input
+                                type="text"
+                                style={styles.formInput}
+                                placeholder="10001"
+                                value={checkoutForm.shippingZip}
+                                onChange={(e) => setCheckoutForm({ ...checkoutForm, shippingZip: e.target.value })}
+                                required
+                              />
+                            </div>
                           </div>
                         </div>
 
                         <div style={styles.modalActions}>
-                          <button
-                            type="button"
-                            onClick={() => setShowCheckout(false)}
-                            style={styles.modalCancelBtn}
-                          >
+                          <button type="button" onClick={() => setShowCheckout(false)} style={styles.modalCancelBtn}>
                             Cancel
                           </button>
                           <button type="submit" style={styles.modalSubmitBtn}>
@@ -949,17 +987,15 @@ export default function StoreSimulation({ token, user }) {
 
                         <div style={styles.formGroup}>
                           <label style={styles.formLabel}>Quick Select Active Card</label>
-                          <select
-                            style={styles.formSelect}
-                            value={selectedCardId}
-                            onChange={handleCardSelectChange}
-                          >
+                          <select style={styles.formSelect} value={selectedCardId} onChange={handleCardSelectChange}>
                             <option value="">-- Choose Card to Auto-fill --</option>
-                            {cards.map(c => (
-                              <option key={c.id} value={c.id}>
-                                {c.card_name} - {c.card_type.toUpperCase()} (•••• {c.card_number.slice(-4)}) [Limit: CFA {Math.round(c.spending_limit).toLocaleString()}] {c.status === 'frozen' ? '❄️ FROZEN' : ''}
-                              </option>
-                            ))}
+                            {cards
+                              .filter((c) => Number(c.is_primary) === 1)
+                              .map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.card_name} - {c.card_type.toUpperCase()} (•••• {c.card_number.slice(-4)}) [Limit: CFA {Math.round(c.spending_limit).toLocaleString()}] {c.status === 'frozen' ? '❄️ FROZEN' : ''}
+                                </option>
+                              ))}
                           </select>
                         </div>
 
@@ -969,7 +1005,7 @@ export default function StoreSimulation({ token, user }) {
                             type="text"
                             style={styles.formInput}
                             value={checkoutForm.cardHolder}
-                            onChange={e => setCheckoutForm({ ...checkoutForm, cardHolder: e.target.value })}
+                            onChange={(e) => setCheckoutForm({ ...checkoutForm, cardHolder: e.target.value })}
                             required
                           />
                         </div>
@@ -981,7 +1017,7 @@ export default function StoreSimulation({ token, user }) {
                             style={styles.formInput}
                             placeholder="4000 1234 5678 9010"
                             value={checkoutForm.cardNumber}
-                            onChange={e => {
+                            onChange={(e) => {
                               const raw = e.target.value.replace(/\D/g, '');
                               setCheckoutForm({ ...checkoutForm, cardNumber: raw });
                             }}
@@ -996,9 +1032,9 @@ export default function StoreSimulation({ token, user }) {
                               type="text"
                               style={styles.formInput}
                               placeholder="12/28"
-                              maxLength="5"
+                              maxLength={5}
                               value={checkoutForm.expiryDate}
-                              onChange={e => setCheckoutForm({ ...checkoutForm, expiryDate: e.target.value })}
+                              onChange={(e) => setCheckoutForm({ ...checkoutForm, expiryDate: e.target.value })}
                               required
                             />
                           </div>
@@ -1008,9 +1044,9 @@ export default function StoreSimulation({ token, user }) {
                               type="text"
                               style={styles.formInput}
                               placeholder="123"
-                              maxLength="4"
+                              maxLength={4}
                               value={checkoutForm.cvv}
-                              onChange={e => setCheckoutForm({ ...checkoutForm, cvv: e.target.value.replace(/\D/g, '') })}
+                              onChange={(e) => setCheckoutForm({ ...checkoutForm, cvv: e.target.value.replace(/\D/g, '') })}
                               onFocus={() => setCvvFocused(true)}
                               onBlur={() => setCvvFocused(false)}
                               required
@@ -1019,29 +1055,19 @@ export default function StoreSimulation({ token, user }) {
                         </div>
 
                         <div style={styles.modalActions}>
-                          <button
-                            type="button"
-                            onClick={() => setCheckoutStep('billing')}
-                            style={styles.modalCancelBtn}
-                          >
+                          <button type="button" onClick={() => setCheckoutStep('billing')} style={styles.modalCancelBtn}>
                             <ArrowLeft size={14} />
                             Address
                           </button>
 
-                          <button
-                            type="submit"
-                            style={styles.modalPurchaseBtn}
-                            disabled={isSubmittingPurchase}
-                          >
+                          <button type="submit" style={styles.modalPurchaseBtn} disabled={isSubmittingPurchase}>
                             {isSubmittingPurchase ? (
                               <>
                                 <span style={styles.miniSpinner}></span>
                                 Processing...
                               </>
                             ) : (
-                              <>
-                                Authorize Purchase {formatPrice(cartSubtotal)}
-                              </>
+                              <>Authorize Purchase {formatPrice(cartSubtotal)}</>
                             )}
                           </button>
                         </div>
@@ -1049,12 +1075,11 @@ export default function StoreSimulation({ token, user }) {
                     )}
                   </div>
 
-                  {/* Right Side: Dynamic Visual Card & Cart Summary */}
                   <div style={styles.checkoutSummaryCol}>
                     {checkoutStep === 'payment' && (
                       <div style={{ marginBottom: '20px' }}>
                         <CheckoutCard
-                          cardName={cards.find(c => String(c.id) === String(selectedCardId))?.card_name || 'VIRTUAL CARD'}
+                          cardName={cards.find((c) => String(c.id) === String(selectedCardId))?.card_name || 'VIRTUAL CARD'}
                           cardNumber={checkoutForm.cardNumber}
                           cardHolder={checkoutForm.cardHolder}
                           expiryDate={checkoutForm.expiryDate}
@@ -1069,9 +1094,11 @@ export default function StoreSimulation({ token, user }) {
                     <div style={styles.orderSummaryCard}>
                       <h4 style={styles.summaryTitle}>Cart Summary</h4>
                       <div style={styles.summaryList}>
-                        {cart.map(item => (
+                        {cart.map((item) => (
                           <div key={item.id} style={styles.summaryItem}>
-                            <span style={styles.summaryItemName}>{item.name} <strong style={{ color: COLORS.gray[500] }}>x{item.quantity}</strong></span>
+                            <span style={styles.summaryItemName}>
+                              {item.name} <strong style={{ color: COLORS.gray[500] }}>x{item.quantity}</strong>
+                            </span>
                             <span style={styles.summaryItemPrice}>{formatPrice(parseFloat(item.price) * item.quantity)}</span>
                           </div>
                         ))}
@@ -1103,7 +1130,6 @@ export default function StoreSimulation({ token, user }) {
                 </div>
               </form>
             ) : (
-              /* Success Receipt View */
               <div style={styles.receiptContainer} className="print-area">
                 <div style={styles.receiptHeader}>
                   <div style={styles.successIconWrapper}>
@@ -1117,11 +1143,16 @@ export default function StoreSimulation({ token, user }) {
                 <div style={styles.receiptGrid}>
                   <div style={styles.receiptBlock}>
                     <h4 style={styles.receiptBlockTitle}>Shipping Address</h4>
-                    <p style={{ ...styles.receiptText, whiteSpace: 'pre-line' }}>
-                      {checkoutResult.shipping.shippingName}
-                      {'\n'}{checkoutResult.shipping.shippingAddress}
-                      {'\n'}{checkoutResult.shipping.shippingCity}, {checkoutResult.shipping.shippingState} {checkoutResult.shipping.shippingZip}
-                      {'\n'}United States
+                    <p style={styles.receiptText}>
+                      <span style={{ whiteSpace: 'pre-line' }}>
+                        {checkoutResult.shipping.shippingName}
+                        {'\n'}
+                        {checkoutResult.shipping.shippingAddress}
+                        {'\n'}
+                        {checkoutResult.shipping.shippingCity}, {checkoutResult.shipping.shippingState} {checkoutResult.shipping.shippingZip}
+                        {'\n'}
+                        United States
+                      </span>
                     </p>
                   </div>
                   <div style={styles.receiptBlock}>
@@ -1141,9 +1172,11 @@ export default function StoreSimulation({ token, user }) {
                 <div style={{ marginTop: '24px' }}>
                   <h4 style={styles.receiptBlockTitle}>Items Purchased</h4>
                   <div style={styles.receiptItemsList}>
-                    {cart.map(item => (
+                    {cart.map((item) => (
                       <div key={item.id} style={styles.receiptItemRow}>
-                        <span>{item.name} <strong>x{item.quantity}</strong></span>
+                        <span>
+                          {item.name} <strong>x{item.quantity}</strong>
+                        </span>
                         <span>{formatPrice(parseFloat(item.price) * item.quantity)}</span>
                       </div>
                     ))}
@@ -1161,17 +1194,14 @@ export default function StoreSimulation({ token, user }) {
                     <span>This was a sandbox check. Your virtual card limit has been adjusted, and records have been logged to the Transactions & Dashboard pages.</span>
                   </div>
                   <div style={styles.receiptActions} className="no-print">
-                    <button
-                      onClick={() => window.print()}
-                      style={styles.printBtn}
-                    >
+                    <button onClick={() => window.print()} style={styles.printBtn}>
                       <Printer size={16} />
                       Print Receipt
                     </button>
                     <button
                       onClick={() => {
                         setShowCheckout(false);
-                        setCart([]); // Reset cart
+                        setCart([]);
                         setActiveTab('catalog');
                       }}
                       style={styles.backToStoreBtn}
@@ -1189,7 +1219,6 @@ export default function StoreSimulation({ token, user }) {
   );
 }
 
-// Styling classes objects for styling in JSS
 const styles = {
   container: {
     padding: '24px',
@@ -1225,11 +1254,7 @@ const styles = {
     borderBottom: '1px solid #e2e8f0',
     paddingBottom: '20px'
   },
-  headerLeft: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px'
-  },
+  headerLeft: { display: 'flex', alignItems: 'center', gap: '16px' },
   headerIconWrapper: {
     width: '48px',
     height: '48px',
@@ -1239,23 +1264,9 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center'
   },
-  title: {
-    margin: 0,
-    fontSize: '24px',
-    fontWeight: '800',
-    color: COLORS.gray[900],
-    letterSpacing: '-0.5px'
-  },
-  subtitle: {
-    margin: '2px 0 0 0',
-    color: COLORS.gray[500],
-    fontSize: '13px'
-  },
-  headerRight: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px'
-  },
+  title: { margin: 0, fontSize: '24px', fontWeight: '800', color: COLORS.gray[900], letterSpacing: '-0.5px' },
+  subtitle: { margin: '2px 0 0 0', color: COLORS.gray[500], fontSize: '13px' },
+  headerRight: { display: 'flex', alignItems: 'center', gap: '12px' },
   ordersTabBtn: {
     padding: '10px 16px',
     background: 'white',
@@ -1327,11 +1338,7 @@ const styles = {
     inset: 0,
     background: 'radial-gradient(circle at top right, rgba(59,130,246,0.15) 0%, transparent 60%)'
   },
-  heroContent: {
-    position: 'relative',
-    zIndex: 2,
-    maxWidth: '640px'
-  },
+  heroContent: { position: 'relative', zIndex: 2, maxWidth: '640px' },
   heroBadge: {
     display: 'inline-block',
     background: 'rgba(59, 130, 246, 0.2)',
@@ -1344,19 +1351,8 @@ const styles = {
     letterSpacing: '0.05em',
     marginBottom: '12px'
   },
-  heroTitle: {
-    fontSize: '28px',
-    fontWeight: '800',
-    color: 'white',
-    margin: '0 0 10px 0',
-    letterSpacing: '-0.5px'
-  },
-  heroDescription: {
-    color: COLORS.gray[300],
-    fontSize: '14px',
-    lineHeight: '1.6',
-    margin: 0
-  },
+  heroTitle: { fontSize: '28px', fontWeight: '800', color: 'white', margin: '0 0 10px 0', letterSpacing: '-0.5px' },
+  heroDescription: { color: COLORS.gray[300], fontSize: '14px', lineHeight: '1.6', margin: 0 },
   filterBar: {
     background: 'white',
     padding: '16px 20px',
@@ -1369,12 +1365,52 @@ const styles = {
     flexWrap: 'wrap',
     marginBottom: '20px'
   },
-  searchWrapper: {
-    position: 'relative',
-    flex: '1 1 300px'
+  searchWrapper: { position: 'relative', flex: '1 1 300px' },
+  searchIcon: { position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: COLORS.gray[400] },
+  searchInput: {
+    width: '100%',
+    padding: '10px 12px 10px 38px',
+    border: `1px solid ${COLORS.gray[200]}`,
+    borderRadius: '8px',
+    fontSize: '14px',
+    background: '#f8fafc',
+    color: COLORS.gray[900],
+    transition: 'all 0.2s'
   },
-  searchIcon: {
-    position: 'absolute',
+  sortingWrapper: { display: 'flex', alignItems: 'center', gap: '8px' },
+  sortSelect: {
+    padding: '8px 12px',
+    border: `1px solid ${COLORS.gray[200]}`,
+    borderRadius: '8px',
+    fontSize: '13px',
+    color: COLORS.gray[700],
+    background: 'white',
+    fontWeight: '500'
+  },
+  categoryTabs: { display: 'flex', gap: '8px', marginBottom: '28px', overflowX: 'auto', paddingBottom: '4px' },
+  catTab: {
+    padding: '8px 16px',
+    background: 'white',
+    color: COLORS.gray[600],
+    border: `1px solid ${COLORS.gray[200]}`,
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: '600',
+    whiteSpace: 'nowrap',
+    transition: 'all 0.2s'
+  },
+  catTabActive: {
+    background: COLORS.primary,
+    color: 'white',
+    borderColor: COLORS.primary,
+    boxShadow: '0 4px 10px rgba(37,99,235,0.15)'
+  },
+  loadingWrapper: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 0' },
+  spinner: {
+    width: '40px',
+    height: '40px',
+    border: `4px solid ${COLORS.gray[200]}`,
     left: '12px',
     top: '50%',
     transform: 'translateY(-50%)',

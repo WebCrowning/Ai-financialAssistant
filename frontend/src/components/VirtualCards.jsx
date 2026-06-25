@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
+import { supabase } from '../supabaseClient';
 const creditCardIcon = '/images/credit-card.png';
 
 
@@ -639,21 +640,15 @@ export default function VirtualCards({ token, user }) {
   // Fetch real user profile for display_name
   const [userProfile, setUserProfile] = useState(null);
 
+  // Prefer the user prop / localStorage for display name.
+  // (Avoid /api/* calls; Supabase direct usage.)
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        const response = await fetch('/api/auth/me', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (response.ok) {
-          const profile = await response.json();
-          setUserProfile(profile);
-        }
-      } catch (e) {
-        console.error('Error fetching user profile:', e);
-      }
-    };
-    if (token) fetchUserProfile();
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('user') || 'null');
+      if (storedUser) setUserProfile(storedUser);
+    } catch {
+      // ignore
+    }
   }, [token]);
 
   const resolvedUser = userProfile || user;
@@ -673,25 +668,26 @@ export default function VirtualCards({ token, user }) {
   const fetchCards = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/virtual-cards', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
 
-      if (!response.ok) {
-        let msg = 'Failed to load cards';
-        try {
-          const err = await response.json();
-          msg = err.message || msg;
-        } catch { }
-        showAlert(msg, 'error');
+      const resolvedUserId =
+        user?.id ||
+        localStorage.getItem('userId') ||
+        localStorage.getItem('user_id') ||
+        JSON.parse(localStorage.getItem('user') || 'null')?.id;
+
+      if (!resolvedUserId) {
+        showAlert('User not authenticated', 'error');
         return;
       }
 
-      const data = await response.json();
-      setCards(data);
+      const { data, error } = await supabase
+        .from('virtual_cards')
+        .select('*')
+        .eq('user_id', resolvedUserId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setCards(data || []);
     } catch (e) {
       console.error('Error fetching cards:', e);
       showAlert('Failed to load cards', 'error');
@@ -714,11 +710,19 @@ export default function VirtualCards({ token, user }) {
     e.preventDefault();
 
     if (!newCard.cardName.trim()) return showAlert('Please enter a card name', 'error');
-    if (!user || !user.id) return showAlert('User not authenticated', 'error');
+
+    const resolvedUserId =
+      user?.id ||
+      localStorage.getItem('userId') ||
+      localStorage.getItem('user_id') ||
+      JSON.parse(localStorage.getItem('user') || 'null')?.id;
+
+    if (!resolvedUserId) return showAlert('User not authenticated', 'error');
 
     setCreatingCard(true);
     try {
       const payload = {
+        user_id: resolvedUserId,
         card_name: newCard.cardName,
         card_type: newCard.cardType,
         card_number: makeCardNumber(newCard.cardType),
@@ -727,28 +731,21 @@ export default function VirtualCards({ token, user }) {
         card_holder: getCardHolderName(),
         spending_limit: newCard.spendingLimit,
         card_color: newCard.cardColor,
-        status: 'active'
+        status: 'active',
       };
 
-      const response = await fetch('/api/virtual-cards', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
+      const { data, error } = await supabase
+        .from('virtual_cards')
+        .insert(payload)
+        .select('*')
+        .single();
 
-      const data = await response.json();
+      if (error) throw error;
 
-      if (response.ok) {
-        setCards((prev) => [data, ...prev]);
-        showAlert(`Virtual card created successfully for ${getCardHolderName()}`);
-        setShowCreateCard(false);
-        setNewCard({ cardName: '', cardType: 'visa', spendingLimit: 5000, cardColor: 0 });
-      } else {
-        showAlert(data.message || 'Failed to create card', 'error');
-      }
+      setCards((prev) => [data, ...prev]);
+      showAlert(`Virtual card created successfully for ${getCardHolderName()}`);
+      setShowCreateCard(false);
+      setNewCard({ cardName: '', cardType: 'visa', spendingLimit: 5000, cardColor: 0 });
     } catch (err) {
       console.error('Error creating card:', err);
       showAlert('Failed to create card', 'error');
@@ -761,22 +758,15 @@ export default function VirtualCards({ token, user }) {
     if (!window.confirm('Are you sure you want to delete this virtual card?')) return;
 
     try {
-      const response = await fetch(`/api/virtual-cards/${id}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const { error } = await supabase
+        .from('virtual_cards')
+        .delete()
+        .eq('id', id);
 
-      const data = await response.json().catch(() => null);
+      if (error) throw error;
 
-      if (response.ok) {
-        showAlert('Card deleted successfully');
-        setCards((prev) => prev.filter((c) => c.id !== id));
-      } else {
-        showAlert(data?.message || 'Failed to delete card', 'error');
-      }
+      showAlert('Card deleted successfully');
+      setCards((prev) => prev.filter((c) => c.id !== id));
     } catch (err) {
       console.error('Error deleting card:', err);
       showAlert('Failed to delete card', 'error');
@@ -787,23 +777,15 @@ export default function VirtualCards({ token, user }) {
     const newStatus = currentStatus === 'active' ? 'frozen' : 'active';
 
     try {
-      const response = await fetch(`/api/virtual-cards/${id}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ status: newStatus })
-      });
+      const { error } = await supabase
+        .from('virtual_cards')
+        .update({ status: newStatus })
+        .eq('id', id);
 
-      const data = await response.json().catch(() => null);
+      if (error) throw error;
 
-      if (response.ok) {
-        setCards((prev) => prev.map((card) => (card.id === id ? { ...card, status: newStatus } : card)));
-        showAlert(`Card ${newStatus === 'active' ? 'activated' : 'frozen'} successfully`);
-      } else {
-        showAlert(data?.message || 'Failed to update card status', 'error');
-      }
+      setCards((prev) => prev.map((card) => (card.id === id ? { ...card, status: newStatus } : card)));
+      showAlert(`Card ${newStatus === 'active' ? 'activated' : 'frozen'} successfully`);
     } catch (err) {
       console.error('Error toggling card status:', err);
       showAlert('Failed to update card status', 'error');
@@ -812,20 +794,27 @@ export default function VirtualCards({ token, user }) {
 
   const handleMakePrimary = async (id) => {
     try {
-      const response = await fetch(`/api/virtual-cards/${id}/primary`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        }
-      });
+      const resolvedUserId =
+        user?.id ||
+        localStorage.getItem('userId') ||
+        localStorage.getItem('user_id') ||
+        JSON.parse(localStorage.getItem('user') || 'null')?.id;
 
-      const data = await response.json().catch(() => null);
+      if (!resolvedUserId) throw new Error('User not authenticated');
 
-      if (!response.ok) {
-        showAlert(data?.message || 'Failed to set primary virtual card', 'error');
-        return;
-      }
+      const { error: clearErr } = await supabase
+        .from('virtual_cards')
+        .update({ is_primary: false })
+        .eq('user_id', resolvedUserId);
+
+      if (clearErr) throw clearErr;
+
+      const { error: setErr } = await supabase
+        .from('virtual_cards')
+        .update({ is_primary: true })
+        .eq('id', id);
+
+      if (setErr) throw setErr;
 
       showAlert('Primary virtual card updated');
       await fetchCards();
