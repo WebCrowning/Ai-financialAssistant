@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { DollarSign, Plus, Zap, RefreshCw, AlertCircle, Clock, Edit, Trash2, X, Check } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 
 export default function IncomeLogger({ incomes, token, onRefresh }) {
+
   const [amount, setAmount] = useState('');
   const [source, setSource] = useState('');
   const [category, setCategory] = useState('salary');
@@ -37,26 +39,22 @@ export default function IncomeLogger({ incomes, token, onRefresh }) {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/income', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
+      const resolvedUserId = localStorage.getItem('userId') || localStorage.getItem('user_id') || localStorage.getItem('user');
+      if (!resolvedUserId) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('income')
+        .insert({
+          user_id: resolvedUserId,
           amount: parseFloat(amount),
           source,
           category,
           is_irregular: isIrregular
-        })
-      });
+        });
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to log income');
-      }
+      if (error) throw error;
 
-      setSuccess(data.message || 'Income logged successfully.');
+      setSuccess('Income logged successfully.');
       setAmount('');
       setSource('');
       setCategory('salary');
@@ -68,6 +66,7 @@ export default function IncomeLogger({ incomes, token, onRefresh }) {
       setLoading(false);
     }
   };
+
 
   const handleEditIncome = (income) => {
     setEditingId(income.id);
@@ -82,23 +81,16 @@ export default function IncomeLogger({ incomes, token, onRefresh }) {
     setLoading(true);
 
     try {
-      const response = await fetch(`/api/income/${editingId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
+      const { error } = await supabase
+        .from('income')
+        .update({
           amount: parseFloat(editAmount),
           source: editSource,
           category: editCategory
         })
-      });
+        .eq('id', editingId);
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to update income');
-      }
+      if (error) throw error;
 
       setSuccess('Income updated successfully.');
       setEditingId(null);
@@ -110,23 +102,19 @@ export default function IncomeLogger({ incomes, token, onRefresh }) {
     }
   };
 
+
   const handleDeleteIncome = async (id) => {
     setError('');
     setSuccess('');
     setLoading(true);
 
     try {
-      const response = await fetch(`/api/income/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const { error } = await supabase
+        .from('income')
+        .delete()
+        .eq('id', id);
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to delete income');
-      }
+      if (error) throw error;
 
       setSuccess('Income deleted successfully.');
       setDeleteConfirm(null);
@@ -138,27 +126,38 @@ export default function IncomeLogger({ incomes, token, onRefresh }) {
     }
   };
 
+
   const handleSimulateIrregular = async () => {
+    // Without backend endpoint, we simulate by inserting one irregular income record.
     setError('');
     setSuccess('');
     setSimulating(true);
     setCountdown(5);
 
     try {
-      const response = await fetch('/api/income/simulate-irregular', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message);
-      }
-      setSuccess(data.message);
+      const resolvedUserId = localStorage.getItem('userId') || localStorage.getItem('user_id') || localStorage.getItem('user');
+      if (!resolvedUserId) throw new Error('User not authenticated');
+
+      // Insert a mock irregular income; the countdown effect will finish and refresh.
+      const { error } = await supabase
+        .from('income')
+        .insert({
+          user_id: resolvedUserId,
+          amount: 15000,
+          source: 'Simulated Irregular Income',
+          category: 'freelance',
+          is_irregular: true
+        });
+
+      if (error) throw error;
+
+      setSuccess('Irregular income scheduled (simulated).');
     } catch (err) {
       setError(err.message);
       setSimulating(false);
     }
-  };
+  }; 
+
 
   // Countdown effect
   useEffect(() => {

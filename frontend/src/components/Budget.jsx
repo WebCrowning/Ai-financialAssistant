@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  AlertCircle, Plus, RefreshCw, CheckCircle, Target, 
-  TrendingDown, ShieldAlert, Wallet, TrendingUp, 
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  AlertCircle, Plus, RefreshCw, CheckCircle, Target,
+  TrendingDown, ShieldAlert, Wallet, TrendingUp,
   Percent, BarChart3, Settings, Edit2, Trash2,
   Calendar, DollarSign, PieChart, Download,
   Filter, ChevronDown, X, Eye
 } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 
 // Professional color system
 const COLORS = {
@@ -34,6 +35,17 @@ const COLORS = {
 };
 
 export default function Budget({ token }) {
+  const user = useMemo(() => {
+    try {
+      const u = localStorage.getItem('user');
+      return u ? JSON.parse(u) : null;
+    } catch {
+      return null;
+    }
+  }, [token]);
+
+  const userId = user?.id;
+
   const [budgets, setBudgets] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -47,32 +59,47 @@ export default function Budget({ token }) {
 
   useEffect(() => {
     fetchBudgetData();
-  }, [token]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, userId]);
 
   const fetchBudgetData = async () => {
+    if (!supabase) {
+      showAlert('Supabase client not configured', 'error');
+      setLoading(false);
+      return;
+    }
+    if (!userId) {
+      showAlert('User not authenticated', 'error');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
-      const headers = { 'Authorization': `Bearer ${token}` };
-      const [budRes, expRes] = await Promise.all([
-        fetch('/api/budgets', { headers }),
-        fetch('/api/expenses', { headers })
+
+      const [{ data: rawBudgets, error: budErr }, { data: rawExpenses, error: expErr }] = await Promise.all([
+        supabase.from('budgets').select('*').eq('user_id', userId),
+        supabase.from('expenses').select('*').eq('user_id', userId),
       ]);
 
-      const rawBudgets = await budRes.json();
-      const rawExpenses = await expRes.json();
+      if (budErr) throw budErr;
+      if (expErr) throw expErr;
 
-      setExpenses(rawExpenses);
+      setExpenses(rawExpenses || []);
 
-      const processedBudgets = rawBudgets.map(b => {
-        const spent = rawExpenses
-          .filter(e => e.category === b.category)
+      const processedBudgets = (rawBudgets || []).map((b) => {
+        const spent = (rawExpenses || [])
+          .filter((e) => e.category === b.category)
           .reduce((sum, e) => sum + parseFloat(e.amount), 0);
+
+        const limitVal = parseFloat(b.limit_amount) || parseFloat(b.limit) || 0;
+
         return {
           id: b.id,
           category: b.category,
-          limit: parseFloat(b.limit_amount) || parseFloat(b.limit) || 0,
+          limit: limitVal,
           spent,
-          remaining: (parseFloat(b.limit_amount) || parseFloat(b.limit) || 0) - spent
+          remaining: limitVal - spent,
         };
       });
 

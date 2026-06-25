@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Search, Filter, Download, Plus, Edit2, Trash2, X, 
-  FileText, Camera, DollarSign, ListOrdered, CheckCircle, 
-  AlertTriangle, ChevronDown, Calendar, CreditCard, 
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Search, Filter, Download, Plus, Edit2, Trash2, X,
+  FileText, Camera, DollarSign, ListOrdered, CheckCircle,
+  AlertTriangle, ChevronDown, Calendar, CreditCard,
   Tag, TrendingUp, TrendingDown, Wallet, BarChart3,
   Eye, MoreVertical, Copy, Printer, RefreshCw
 } from 'lucide-react';
+import { supabase } from '../supabaseClient';
+
 import ReceiptScanner from './ReceiptScanner';
 import IncomeLogger from './IncomeLogger';
+
 
 // Professional color system
 const COLORS = {
@@ -41,6 +44,8 @@ export default function Transactions({ token }) {
   const [expenses, setExpenses] = useState([]);
   const [incomes, setIncomes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState(null);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [accountFilter, setAccountFilter] = useState('All');
@@ -66,57 +71,85 @@ export default function Transactions({ token }) {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const headers = { 'Authorization': `Bearer ${token}` };
+
+      // token is kept for compatibility; we pull current user id for Supabase filtering
+      const uid = localStorage.getItem('userId') || localStorage.getItem('user_id');
+      if (uid) setUserId(uid);
+
+      const resolvedUserId = uid || localStorage.getItem('user') || localStorage.getItem('user_id');
+      if (!resolvedUserId) {
+        setExpenses([]);
+        setIncomes([]);
+        return;
+      }
+
       const [expRes, incRes] = await Promise.all([
-        fetch('/api/expenses', { headers }),
-        fetch('/api/income', { headers })
+        supabase
+          .from('expenses')
+          .select('*')
+          .eq('user_id', resolvedUserId),
+        supabase
+          .from('income')
+          .select('*')
+          .eq('user_id', resolvedUserId)
       ]);
-      if (expRes.ok) setExpenses(await expRes.json());
-      if (incRes.ok) setIncomes(await incRes.json());
+
+      if (expRes.error) throw expRes.error;
+      if (incRes.error) throw incRes.error;
+
+      setExpenses(expRes.data || []);
+      setIncomes(incRes.data || []);
     } catch (err) {
       console.error(err);
+      setError('Failed to load transactions.');
     } finally {
       setLoading(false);
     }
   };
 
+
   const handleDeleteExpense = async (id) => {
     if (!window.confirm('Delete this expense record permanently?')) return;
     try {
-      const res = await fetch(`/api/expenses/${id}`, { 
-        method: 'DELETE', 
-        headers: { 'Authorization': `Bearer ${token}` } 
-      });
-      if (res.ok) {
-        setSuccess('Expense deleted successfully.');
-        fetchData();
-        setTimeout(() => setSuccess(''), 3000);
-      }
-    } catch (err) { 
-      setError('Failed to delete expense.'); 
+      const { error } = await supabase
+        .from('expenses')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setSuccess('Expense deleted successfully.');
+      fetchData();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to delete expense.');
     }
   };
 
   const handleBulkDelete = async () => {
     if (!window.confirm(`Delete ${selectedExpenses.length} selected expenses?`)) return;
     try {
-      await Promise.all(
-        selectedExpenses.map(id => 
-          fetch(`/api/expenses/${id}`, { 
-            method: 'DELETE', 
-            headers: { 'Authorization': `Bearer ${token}` } 
-          })
-        )
-      );
+      // Supabase delete supports in() for batch
+      const { error } = await supabase
+        .from('expenses')
+        .delete()
+        .in('id', selectedExpenses);
+
+      if (error) throw error;
+
       setSuccess(`${selectedExpenses.length} expenses deleted.`);
       setSelectedExpenses([]);
       setShowBulkActions(false);
       fetchData();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
+      console.error(err);
       setError('Failed to delete expenses.');
     }
   };
+
+
 
   const startEdit = (exp) => {
     setEditingExpense(exp);
@@ -132,27 +165,29 @@ export default function Transactions({ token }) {
   const handleUpdateExpense = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch(`/api/expenses/${editingExpense.id}`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json', 
-          'Authorization': `Bearer ${token}` 
-        },
-        body: JSON.stringify(editForm)
-      });
-      if (res.ok) {
-        setSuccess('Expense updated successfully.');
-        setEditingExpense(null);
-        fetchData();
-        setTimeout(() => setSuccess(''), 3000);
-      } else {
-        const data = await res.json();
-        setError(data.message || 'Update failed');
-      }
-    } catch (err) { 
-      setError('Update failed.'); 
+      const { error } = await supabase
+        .from('expenses')
+        .update({
+          amount: editForm.amount,
+          category: editForm.category,
+          description: editForm.description,
+          date: editForm.date,
+          account: editForm.account
+        })
+        .eq('id', editingExpense.id);
+
+      if (error) throw error;
+
+      setSuccess('Expense updated successfully.');
+      setEditingExpense(null);
+      fetchData();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error(err);
+      setError('Update failed.');
     }
   };
+
 
   const handleExportCSV = () => {
     let dataToExport = activeTab === 'expenses' ? expenses : incomes;
