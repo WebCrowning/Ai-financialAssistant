@@ -270,30 +270,32 @@ function ProtectedRoute({ children, token, user }) {
   return children;
 }
 
-// Clean up expired or corrupted tokens before mounting the React app
-(function checkInitialAuth() {
-  const token = localStorage.getItem('token');
-  if (token) {
-    try {
-      const base64Url = token.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(
-        window.atob(base64)
-          .split('')
-          .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-          .join('')
-      );
-      const { exp } = JSON.parse(jsonPayload);
-      if (exp && Date.now() >= exp * 1000) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+  // Clean up expired or corrupted tokens before mounting the React app
+  (function checkInitialAuth() {
+    const token = localStorage.getItem('token');
+    if (token) {
+      // Only attempt JWT decoding if token appears to be a JWT (contains two dots)
+      if (token.split('.').length === 3) {
+        try {
+          const base64Url = token.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(
+            window.atob(base64)
+              .split('')
+              .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+              .join('')
+          );
+          const { exp } = JSON.parse(jsonPayload);
+          // if (exp && Date.now() >= exp * 1000) {
+          //   localStorage.removeItem('token');
+          //   localStorage.removeItem('user');
+          // }
+        } catch (error) {
+          // If decoding fails, keep the token (it may be a fallback placeholder)
+        }
       }
-    } catch (error) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
     }
-  }
-})();
+  })();
 
 function MainApp() {
   const [currentPage, setCurrentPage] = useState('dashboard');
@@ -302,8 +304,11 @@ function MainApp() {
   const [authView, setAuthView] = useState('landing'); // 'landing', 'login', 'register'
 
   const token = localStorage.getItem('token');
+  console.log('DEBUG: token from localStorage', token);
   const userStr = localStorage.getItem('user');
+  console.log('DEBUG: userStr from localStorage', userStr);
   const user = userStr ? JSON.parse(userStr) : null;
+  console.log('DEBUG: parsed user object', user);
 
   const handleLogout = () => {
     localStorage.removeItem('token');

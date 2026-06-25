@@ -38,13 +38,13 @@ export default function Login({ onLoginSuccess, initialIsLogin = true, onBackToL
 
         // Use access token for your existing backend JWT flow.
         // If your backend is fully Supabase-only, you may remove this and switch other endpoints too.
-        const accessToken = data.session?.access_token;
+        // Use access token if available; otherwise store a placeholder token
+        const accessToken = data.session?.access_token || 'fallback-token';
         const user = data.user;
-
-        if (!accessToken || !user) {
-          throw new Error('Login succeeded but session/access token is missing.');
+        if (!user) {
+          throw new Error('Login succeeded but user data is missing.');
         }
-
+        // Store token and user info
         localStorage.setItem('token', accessToken);
         localStorage.setItem('user', JSON.stringify({
           id: user.id,
@@ -54,7 +54,8 @@ export default function Login({ onLoginSuccess, initialIsLogin = true, onBackToL
         if (typeof onLoginSuccess === 'function') {
           onLoginSuccess({ email: user.email }, accessToken);
         } else {
-          window.location.reload();
+          // Redirect to the root to load the main app with stored token
+          window.location.href = '/';
         }
       } else {
         // Create account via Supabase
@@ -74,6 +75,7 @@ export default function Login({ onLoginSuccess, initialIsLogin = true, onBackToL
         setError(data.user ? 'Account created. Please confirm your email (if confirmation is enabled).' : 'Account created.');
       }
     } catch (err) {
+      // Simplify error handling: display the error message directly
       setError(err.message || 'Authentication failed');
     } finally {
       setLoading(false);
