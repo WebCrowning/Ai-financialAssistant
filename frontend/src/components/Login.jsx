@@ -29,32 +29,35 @@ export default function Login({ onLoginSuccess, initialIsLogin = true, onBackToL
         throw new Error('Supabase client not initialized. Check env vars.');
       }
 
-      if (isLogin) {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
+        if (isLogin) {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
         });
-        if (error) throw error;
 
-        // Use access token for your existing backend JWT flow.
-        // If your backend is fully Supabase-only, you may remove this and switch other endpoints too.
-        // Use access token if available; otherwise store a placeholder token
-        const accessToken = data.session?.access_token || 'fallback-token';
-        const user = data.user;
-        if (!user) {
-          throw new Error('Login succeeded but user data is missing.');
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data?.message || 'Login failed');
         }
-        // Store token and user info
-        localStorage.setItem('token', accessToken);
+
+        const { token, user } = data;
+        if (!token || !user) {
+          throw new Error('Login succeeded but backend response is missing token/user.');
+        }
+
+        // Store backend JWT and user info
+        localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify({
           id: user.id,
           email: user.email,
+          role: user.role,
+          guardian_mode: user.guardian_mode
         }));
 
         if (typeof onLoginSuccess === 'function') {
-          onLoginSuccess({ email: user.email }, accessToken);
+          onLoginSuccess({ email: user.email }, token);
         } else {
-          // Redirect to the root to load the main app with stored token
           window.location.href = '/';
         }
       } else {

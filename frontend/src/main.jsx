@@ -7,6 +7,8 @@ import App from './App.jsx'
 const originalFetch = window.fetch;
 window.fetch = async (...args) => {
   const response = await originalFetch(...args);
+
+  // Avoid auto-redirect loops. We only clear localStorage and let the app decide what to show.
   if (response.status === 401 || response.status === 403) {
     const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
     if (url.includes('/api/')) {
@@ -16,15 +18,17 @@ window.fetch = async (...args) => {
         if (data && (data.message === 'Token is invalid or expired' || data.message === 'Access token required')) {
           localStorage.removeItem('token');
           localStorage.removeItem('user');
-          window.location.href = '/';
+          // No redirect: prevents immediate navigation back to landing page.
         }
       } catch (e) {
         // Ignore JSON parse errors
       }
     }
   }
+
   return response;
 };
+
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
