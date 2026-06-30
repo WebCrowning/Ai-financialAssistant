@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-
-// Font Awesome CDN (add to index.html)
-// <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+import { supabase } from '../supabaseClient';
+import * as XLSX from 'xlsx';
 
 const COLORS = {
   primary: '#2563eb',
@@ -30,6 +29,349 @@ const COLORS = {
   white: '#ffffff',
   black: '#000000'
 };
+
+// Parse individual SMS content
+function parseSMSContent(content, date, time) {
+  if (!content) return null;
+  const text = content.toLowerCase();
+
+  const result = {
+    transactionType: 'unknown',
+    amount: 0,
+    fee: 0,
+    balance: 0,
+    sender: '',
+    receiver: '',
+    description: '',
+    isIncome: false,
+    isExpense: false,
+    category: 'Other'
+  };
+
+  const parseAmount = (matchStr) => {
+    if (!matchStr) return 0;
+    return parseFloat(matchStr.replace(/,/g, '').replace(/\s/g, '')) || 0;
+  };
+
+  // Balance Inquiry
+  if (text.includes('current balance') && text.includes('available balance')) {
+    const balanceMatch = text.match(/(?:current|available)\s*balance[:\s]*([\d,.]+)/i) || text.match(/(?:current balance|available balance)[:\s]*([\d,.]+)/i);
+    if (balanceMatch) {
+      result.balance = parseAmount(balanceMatch[1]);
+      result.transactionType = 'balance_check';
+      result.description = 'Balance Inquiry';
+      result.category = 'Balance';
+      return result;
+    }
+  }
+
+  // Received payment / deposit received
+  if (
+    text.includes('you have received') ||
+    text.includes('received from') ||
+    text.includes('has sent you') ||
+    text.includes('deposit of') ||
+    text.includes('deposited by')
+  ) {
+    const amountMatch = text.match(/(?:received|sent you|deposit of|deposited by)\s*(?:of)?\s*(?:fcfa|xaf)?\s*([\d,.]+)\s*(?:xaf|fcfa|fcf a)?/i) ||
+      text.match(/(?:received|sent you|deposit of|deposited by)\s*([\d,.]+)/i);
+
+    let amount = 0;
+    if (amountMatch) amount = parseAmount(amountMatch[1]);
+
+    if (amount > 0) {
+      result.amount = amount;
+      result.transactionType = 'receive';
+      result.isIncome = true;
+      result.isExpense = false;
+      result.description = 'Received Money';
+
+      const senderMatch = text.match(/(?:from|of|by)\s+([^(\d]+)(?:\(|on|ref:)/i) ||
+        text.match(/(?:from|by)\s+([a-zA-Z\s]+)\b/i);
+      if (senderMatch) {
+        result.sender = senderMatch[1].trim();
+        result.description = `Received from ${senderMatch[1].trim()}`;
+      }
+
+      const balanceMatch = text.match(/(?:new balance|balance)[:\s]*([\d,.]+)/i);
+      if (balanceMatch) {
+        result.balance = parseAmount(balanceMatch[1]);
+      }
+
+      if (text.includes('betpawa') || text.includes('gaming') || text.includes('1xbet') || text.includes('ennovative')) {
+        result.category = 'Gaming/Betting';
+        result.description = 'Betpawa/Gaming Withdrawal';
+      } else if (text.includes('transfer') || text.includes('momo')) {
+        result.category = 'Transfer';
+      } else {
+        result.category = 'Received Payment';
+      }
+      return result;
+    }
+  }
+
+  // Merchant payments / transaction of X by Y
+  if (text.includes('transaction of')) {
+    const amountMatch = text.match(/transaction\s+of\s*(?:fcfa|xaf)?\s*([\d,.]+)\s*(?:xaf|fcfa|fcf a)?/i) ||
+      text.match(/transaction\s+of\s*([\d,.]+)/i);
+    let amount = 0;
+    if (amountMatch) amount = parseAmount(amountMatch[1]);
+
+    if (amount > 0) {
+      result.amount = amount;
+      result.transactionType = 'payment';
+      result.isIncome = false;
+      result.isExpense = true;
+
+      const receiverMatch = text.match(/by\s+([^(\d]+)(?:\(|on|ref:)/i) ||
+        text.match(/by\s+([a-zA-Z\s_]+)\b/i);
+      if (receiverMatch) {
+        result.receiver = receiverMatch[1].trim();
+        result.description = `Transaction via ${receiverMatch[1].trim()}`;
+      } else {
+        result.description = 'Mobile Money Transaction';
+      }
+
+      const feeMatch = text.match(/fee\s+was\s*([\d,.]+)\s*(?:xaf|fcfa|fcf a)?/i);
+      if (feeMatch) {
+        result.fee = parseAmount(feeMatch[1]);
+      }
+
+      const balanceMatch = text.match(/(?:new balance|balance)[:\s]*([\d,.]+)/i);
+      if (balanceMatch) {
+        result.balance = parseAmount(balanceMatch[1]);
+      }
+
+      if (text.includes('bundles') || text.includes('airtime') || text.includes('bundle') || text.includes('internet')) {
+        result.category = 'Airtime/Bundles';
+      } else if (text.includes('betpawa') || text.includes('gaming') || text.includes('1xbet') || text.includes('ennovative')) {
+        result.category = 'Gaming/Betting';
+      } else if (text.includes('transfer') || text.includes('transferred')) {
+        result.category = 'Transfer';
+      } else {
+        result.category = 'Payment';
+      }
+
+      return result;
+    }
+  }
+
+  // Payment / transfer / withdrawal / purchase / platform transfer
+  if (
+    text.includes('your payment of') ||
+    text.includes('you have transferred') ||
+    text.includes('you have withdrawn') ||
+    text.includes('payment of') ||
+    text.includes('transferred to') ||
+    text.includes('withdrawn from') ||
+    text.includes('purchase of') ||
+    text.includes('purchased') ||
+    text.includes('withdrawal of') ||
+    text.includes('pay to')
+  ) {
+    const amountMatch = text.match(/(?:payment|transfer|withdrawn|transferred|withdrew|purchase|purchased|withdrawal|pay)\s*(?:of)?\s*(?:fcfa|xaf)?\s*([\d,.]+)\s*(?:xaf|fcfa|fcf a)?/i) ||
+      text.match(/(?:payment|transfer|withdrawn|transferred|withdrew|purchase|purchased|withdrawal|pay)\s*(?:of)?\s*(?:fcfa|xaf)?\s*([\d,.]+)/i);
+    let amount = 0;
+    if (amountMatch) amount = parseAmount(amountMatch[1]);
+
+    if (amount > 0) {
+      result.amount = amount;
+      result.transactionType = (text.includes('withdraw') || text.includes('withdrawal')) ? 'withdrawal' : 'payment';
+      result.isIncome = false;
+      result.isExpense = true;
+
+      const receiverMatch = text.match(/to\s+([^(\d]+)(?:\(|on|ref:)/i) ||
+        text.match(/at\s+([^(\d]+)(?:\(|on|ref:)/i);
+      if (receiverMatch) {
+        result.receiver = receiverMatch[1].trim();
+        result.description = result.transactionType === 'withdrawal' ? `Cash Withdrawal at ${receiverMatch[1].trim()}` : `Payment to ${receiverMatch[1].trim()}`;
+      } else {
+        result.description = result.transactionType === 'withdrawal' ? 'Cash Withdrawal' : 'Payment / Transfer';
+      }
+
+      const feeMatch = text.match(/(?:fee|charges)[:\s]*([\d,.]+)/i);
+      if (feeMatch) {
+        result.fee = parseAmount(feeMatch[1]);
+      }
+
+      const balanceMatch = text.match(/(?:new balance|balance)[:\s]*([\d,.]+)/i);
+      if (balanceMatch) {
+        result.balance = parseAmount(balanceMatch[1]);
+      }
+
+      if (text.includes('bundles') || text.includes('airtime') || text.includes('bundle') || text.includes('internet')) {
+        result.category = 'Airtime/Bundles';
+        result.description = 'MTN Airtime/Bundles';
+      } else if (text.includes('betpawa') || text.includes('gaming') || text.includes('1xbet') || text.includes('ennovative')) {
+        result.category = 'Gaming/Betting';
+        result.description = 'Betpawa/Gaming Deposit';
+      } else if (text.includes('transfer') || text.includes('transferred')) {
+        result.category = 'Transfer';
+        if (result.receiver) {
+          result.description = `Transfer to ${result.receiver}`;
+        }
+      } else if (result.transactionType === 'withdrawal') {
+        result.category = 'Withdrawal';
+      } else {
+        result.category = 'Payment';
+      }
+      return result;
+    }
+  }
+
+  // Advance/loan
+  if (text.includes('advance') || text.includes('xtracash') || text.includes('loan')) {
+    const amountMatch = text.match(/(?:advance|loan|xtracash)\s*(?:of)?\s*(?:fcfa|xaf)?\s*([\d,.]+)/i);
+    if (amountMatch) {
+      result.amount = parseAmount(amountMatch[1]);
+      result.transactionType = 'advance';
+      result.isIncome = true;
+      result.isExpense = false;
+      result.category = 'Loan/Advance';
+      result.description = 'Mobile Money Advance';
+      return result;
+    }
+  }
+
+  // Repayment
+  if (text.includes('repaid from your account') || text.includes('loan repayment') || text.includes('repayment of')) {
+    const amountMatch = text.match(/(?:amount|repayment|repaid)\s*(?:of)?\s*(?:fcfa|xaf)?\s*([\d,.]+)/i);
+    if (amountMatch) {
+      result.amount = parseAmount(amountMatch[1]);
+      result.transactionType = 'repayment';
+      result.isIncome = false;
+      result.isExpense = true;
+      result.category = 'Loan Repayment';
+      result.description = 'Advance Repayment';
+      return result;
+    }
+  }
+
+  return null;
+}
+
+// Parse SMS Export content string
+function parseSMSExport(content) {
+  try {
+    const lines = content.split(/\r?\n/).filter(line => line.trim());
+    if (lines.length === 0) return [];
+
+    let headerIndex = -1;
+    let dataStartIndex = -1;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].toLowerCase();
+      if (line.includes('date') && line.includes('time') && line.includes('direction') && line.includes('content')) {
+        headerIndex = i;
+        dataStartIndex = i + 1;
+        break;
+      }
+    }
+
+    if (headerIndex === -1) {
+      return parseSMSByPattern(lines);
+    }
+
+    let delimiter = '|';
+    const headerLine = lines[headerIndex];
+    if (headerLine.includes('|')) {
+      delimiter = '|';
+    } else if (headerLine.includes(',')) {
+      delimiter = ',';
+    } else if (headerLine.includes('\t')) {
+      delimiter = '\t';
+    }
+
+    const headers = headerLine.split(delimiter).map(h => h.trim().toLowerCase());
+    const dateIdx = headers.indexOf('date');
+    const timeIdx = headers.indexOf('time');
+    const directionIdx = headers.indexOf('direction');
+    const contactIdx = headers.indexOf('contact');
+    const phoneIdx = headers.indexOf('phone');
+    const contentIdx = headers.indexOf('content');
+    const typeIdx = headers.indexOf('type');
+
+    const transactions = [];
+
+    for (let i = dataStartIndex; i < lines.length; i++) {
+      const cols = lines[i].split(delimiter).map(c => c.trim());
+      if (cols.length <= Math.max(dateIdx, timeIdx, contentIdx)) continue;
+
+      const date = cols[dateIdx] || '';
+      const time = cols[timeIdx] || '';
+      const direction = directionIdx !== -1 ? cols[directionIdx] : '';
+      const contact = contactIdx !== -1 ? cols[contactIdx] : '';
+      const phone = phoneIdx !== -1 ? cols[phoneIdx] : '';
+      const contentText = cols[contentIdx] || '';
+      const type = typeIdx !== -1 ? cols[typeIdx] : 'SMS';
+
+      if (type && type.toUpperCase() !== 'SMS' && type !== '') continue;
+
+      const parsed = parseSMSContent(contentText, date, time);
+      if (parsed) {
+        transactions.push({
+          date,
+          time,
+          direction,
+          contact,
+          phone,
+          content: contentText,
+          type,
+          ...parsed
+        });
+      }
+    }
+
+    return transactions;
+  } catch (error) {
+    console.error('Error parsing SMS export:', error);
+    return [];
+  }
+}
+
+function parseSMSByPattern(lines) {
+  const transactions = [];
+  let currentDate = '';
+  let currentTime = '';
+
+  for (const line of lines) {
+    const dateMatch = line.match(/(\d{4}-\d{2}-\d{2})/);
+    if (dateMatch) {
+      currentDate = dateMatch[1];
+    }
+
+    const timeMatch = line.match(/(\d{2}:\d{2}:\d{2})/);
+    if (timeMatch) {
+      currentTime = timeMatch[1];
+    }
+
+    const lineLower = line.toLowerCase();
+    if (
+      lineLower.includes('mobilemoney') ||
+      lineLower.includes('momo') ||
+      lineLower.includes('received') ||
+      lineLower.includes('transferred') ||
+      lineLower.includes('payment of') ||
+      lineLower.includes('withdrawn')
+    ) {
+      const parsed = parseSMSContent(line, currentDate, currentTime);
+      if (parsed) {
+        transactions.push({
+          date: currentDate,
+          time: currentTime,
+          direction: parsed.isIncome ? 'Received' : 'Sent',
+          contact: 'MobileMoney',
+          phone: 'MobileMoney',
+          content: line,
+          type: 'SMS',
+          ...parsed
+        });
+      }
+    }
+  }
+
+  return transactions;
+}
 
 export default function ChatbotAnalytics({ user, token }) {
   const [messages, setMessages] = useState([
@@ -62,42 +404,44 @@ export default function ChatbotAnalytics({ user, token }) {
   useEffect(() => {
     fetchExpenditureData();
     fetchChatHistory();
-  }, [token]);
+  }, [user]);
 
   const fetchChatHistory = async () => {
-    if (!token) return;
+    if (!user?.id) return;
     try {
-      const response = await fetch('/api/chatbot-analytics/history', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        if (data && data.length > 0) {
-          const loadedMessages = [];
-          
-          loadedMessages.push({
-            id: 1,
-            type: 'bot',
-            content: "Hello! I'm your FinVision AI Assistant. By default, I analyze your stored website data (expenses, income, and purchases). You can also:\n\n• Upload an Excel sheet with your SMS transactions for specific analysis\n• Ask questions about your spending\n• Get personalized financial recommendations",
-            timestamp: data[0] ? new Date(data[0].created_at) : new Date()
-          });
+      const { data, error } = await supabase
+        .from('chatbot_conversations')
+        .select('query, response, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
 
-          data.forEach((item) => {
-            loadedMessages.push({
-              id: loadedMessages.length + 1,
-              type: 'user',
-              content: item.query,
-              timestamp: new Date(item.created_at)
-            });
-            loadedMessages.push({
-              id: loadedMessages.length + 1,
-              type: 'bot',
-              content: item.response,
-              timestamp: new Date(item.created_at)
-            });
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const loadedMessages = [];
+        
+        loadedMessages.push({
+          id: 1,
+          type: 'bot',
+          content: "Hello! I'm your FinVision AI Assistant. By default, I analyze your stored website data (expenses, income, and purchases). You can also:\n\n• Upload an Excel sheet with your SMS transactions for specific analysis\n• Ask questions about your spending\n• Get personalized financial recommendations",
+          timestamp: data[0] ? new Date(data[0].created_at) : new Date()
+        });
+
+        data.forEach((item) => {
+          loadedMessages.push({
+            id: loadedMessages.length + 1,
+            type: 'user',
+            content: item.query,
+            timestamp: new Date(item.created_at)
           });
-          setMessages(loadedMessages);
-        }
+          loadedMessages.push({
+            id: loadedMessages.length + 1,
+            type: 'bot',
+            content: item.response,
+            timestamp: new Date(item.created_at)
+          });
+        });
+        setMessages(loadedMessages);
       }
     } catch (error) {
       console.error('Error fetching chat history:', error);
@@ -105,27 +449,28 @@ export default function ChatbotAnalytics({ user, token }) {
   };
 
   const handleClearChat = async () => {
-    if (!token) return;
+    if (!user?.id) return;
     if (window.confirm("Are you sure you want to clear your chat history?")) {
       try {
-        const response = await fetch('/api/chatbot-analytics/history', {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (response.ok) {
-          setMessages([
-            {
-              id: 1,
-              type: 'bot',
-              content: "Hello! I'm your FinVision AI Assistant. By default, I analyze your stored website data (expenses, income, and purchases). You can also:\n\n• Upload an Excel sheet with your SMS transactions for specific analysis\n• Ask questions about your spending\n• Get personalized financial recommendations",
-              timestamp: new Date()
-            }
-          ]);
-          setExpenditureData(null);
-          setFileAnalysis(null);
-          setUploadedFile(null);
-          setFileData(null);
-        }
+        const { error } = await supabase
+          .from('chatbot_conversations')
+          .delete()
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+
+        setMessages([
+          {
+            id: 1,
+            type: 'bot',
+            content: "Hello! I'm your FinVision AI Assistant. By default, I analyze your stored website data (expenses, income, and purchases). You can also:\n\n• Upload an Excel sheet with your SMS transactions for specific analysis\n• Ask questions about your spending\n• Get personalized financial recommendations",
+            timestamp: new Date()
+          }
+        ]);
+        setExpenditureData(null);
+        setFileAnalysis(null);
+        setUploadedFile(null);
+        setFileData(null);
       } catch (error) {
         console.error('Error clearing chat history:', error);
       }
@@ -133,14 +478,70 @@ export default function ChatbotAnalytics({ user, token }) {
   };
 
   const fetchExpenditureData = async () => {
+    if (!user?.id) return;
     try {
-      const response = await fetch('/api/chatbot-analytics/expenditure', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setExpenditureData(data);
+      const currentDate = new Date();
+      const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString();
+
+      let { data: transactions, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('transaction_date', firstDayOfMonth)
+        .order('transaction_date', { ascending: false });
+
+      if (error) throw error;
+
+      if (!transactions || transactions.length === 0) {
+        const { data: fallbackTxns, error: fallbackErr } = await supabase
+          .from('transactions')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('transaction_date', { ascending: false })
+          .limit(500);
+
+        if (fallbackErr) throw fallbackErr;
+        transactions = fallbackTxns || [];
       }
+
+      if (transactions.length === 0) {
+        setExpenditureData({
+          totalExpenditure: 0,
+          averageDaily: 0,
+          topCategory: 'No data',
+          transactionCount: 0
+        });
+        return;
+      }
+
+      const totalExpenditure = transactions.reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+      const uniqueDays = new Set(transactions.map(t =>
+        new Date(t.transaction_date).toDateString()
+      )).size;
+
+      const averageDaily = uniqueDays > 0 ? totalExpenditure / uniqueDays : totalExpenditure;
+
+      const categoryTotals = {};
+      transactions.forEach(t => {
+        const category = t.category || 'Other';
+        categoryTotals[category] = (categoryTotals[category] || 0) + parseFloat(t.amount || 0);
+      });
+
+      const topCategory = Object.keys(categoryTotals).length > 0
+        ? Object.keys(categoryTotals).reduce((a, b) =>
+          categoryTotals[a] > categoryTotals[b] ? a : b
+        )
+        : 'Not available';
+
+      setExpenditureData({
+        totalExpenditure: parseFloat(totalExpenditure.toFixed(2)),
+        averageDaily: parseFloat(averageDaily.toFixed(2)),
+        topCategory,
+        transactionCount: transactions.length,
+        distinctDays: uniqueDays,
+        categoryBreakdown: categoryTotals
+      });
+
     } catch (error) {
       console.error('Error fetching expenditure data:', error);
     }
@@ -149,6 +550,7 @@ export default function ChatbotAnalytics({ user, token }) {
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    if (!user?.id) return;
 
     const fileExt = file.name.split('.').pop().toLowerCase();
     const validTypes = [
@@ -167,36 +569,209 @@ export default function ChatbotAnalytics({ user, token }) {
     setUploadedFile(file);
     setLoading(true);
 
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const content = event.target.result;
-        setFileData(content);
+    const parseFile = () => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        if (fileExt === 'xlsx' || fileExt === 'xls') {
+          reader.readAsArrayBuffer(file);
+          reader.onload = (event) => {
+            try {
+              const data = new Uint8Array(event.target.result);
+              const workbook = XLSX.read(data, { type: 'array' });
+              const sheetName = workbook.SheetNames[0];
+              const sheet = workbook.Sheets[sheetName];
+              const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+              
+              let headerIndex = -1;
+              for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                if (Array.isArray(row)) {
+                  const rowStr = row.map(cell => String(cell || '').toLowerCase()).join('|');
+                  if (rowStr.includes('date') && rowStr.includes('time') && rowStr.includes('direction') && rowStr.includes('content')) {
+                    headerIndex = i;
+                    break;
+                  }
+                }
+              }
 
-        const formData = new FormData();
-        formData.append('file', file);
+              if (headerIndex === -1) {
+                reject(new Error('Could not find header row in Excel file'));
+                return;
+              }
 
-        const response = await fetch('/api/chatbot-analytics/upload', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-          body: formData
+              const headers = rows[headerIndex].map(h => String(h || '').trim().toLowerCase());
+              const dateIdx = headers.indexOf('date');
+              const timeIdx = headers.indexOf('time');
+              const directionIdx = headers.indexOf('direction');
+              const contactIdx = headers.indexOf('contact');
+              const phoneIdx = headers.indexOf('phone');
+              const contentIdx = headers.indexOf('content');
+              const typeIdx = headers.indexOf('type');
+
+              const transactionsList = [];
+
+              for (let i = headerIndex + 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row || row.length === 0) continue;
+
+                const date = dateIdx !== -1 ? String(row[dateIdx] || '').trim() : '';
+                const time = timeIdx !== -1 ? String(row[timeIdx] || '').trim() : '';
+                const direction = directionIdx !== -1 ? String(row[directionIdx] || '').trim() : '';
+                const contact = contactIdx !== -1 ? String(row[contactIdx] || '').trim() : '';
+                const phone = phoneIdx !== -1 ? String(row[phoneIdx] || '').trim() : '';
+                const contentText = contentIdx !== -1 ? String(row[contentIdx] || '').trim() : '';
+                const type = typeIdx !== -1 ? String(row[typeIdx] || '').trim() : 'SMS';
+
+                if (!contentText) continue;
+
+                const parsed = parseSMSContent(contentText, date, time);
+                if (parsed) {
+                  transactionsList.push({
+                    date,
+                    time,
+                    direction,
+                    contact,
+                    phone,
+                    content: contentText,
+                    type,
+                    ...parsed
+                  });
+                }
+              }
+
+              resolve(transactionsList);
+            } catch (err) {
+              reject(err);
+            }
+          };
+          reader.onerror = (err) => reject(err);
+        } else {
+          reader.readAsText(file);
+          reader.onload = (event) => {
+            try {
+              const content = event.target.result;
+              const transactionsList = parseSMSExport(content);
+              resolve(transactionsList);
+            } catch (err) {
+              reject(err);
+            }
+          };
+          reader.onerror = (err) => reject(err);
+        }
+      });
+    };
+
+    try {
+      const parsedTransactions = await parseFile();
+      setFileData(file);
+
+      // Check for duplicate to avoid multiple inserts of the same transaction
+      const { data: existingTxns, error: fetchErr } = await supabase
+        .from('transactions')
+        .select('amount, transaction_date, description')
+        .eq('user_id', user.id);
+
+      if (fetchErr) throw fetchErr;
+
+      const toInsert = [];
+      for (const t of parsedTransactions) {
+        let dbDate = new Date();
+        if (t.date) {
+          const parsedDate = new Date(t.date);
+          if (!isNaN(parsedDate.getTime())) {
+            dbDate = parsedDate;
+          }
+        }
+        const dbDateISO = dbDate.toISOString();
+        const category = t.category || 'Other';
+        const description = t.description || t.content || 'SMS Transaction';
+        const amount = t.amount || 0;
+        const type = t.isIncome ? 'credit' : 'debit';
+
+        const isDuplicate = (existingTxns || []).some(e => {
+          return Math.abs(parseFloat(e.amount) - amount) < 0.01 &&
+                 new Date(e.transaction_date).getTime() === new Date(dbDateISO).getTime() &&
+                 e.description === description;
         });
 
-        if (response.ok) {
-          const result = await response.json();
-          setFileAnalysis(result);
-          addMessage('bot', `✅ I've successfully uploaded your file with ${result.recordCount || 'multiple'} records. I can now analyze your data. What would you like to know?`);
-          fetchExpenditureData();
-        } else {
-          addMessage('bot', 'I had trouble processing your file. Please ensure it has standard financial columns.');
+        if (!isDuplicate) {
+          toInsert.push({
+            user_id: user.id,
+            amount,
+            category,
+            description,
+            transaction_date: dbDateISO,
+            transaction_type: type,
+            account: 'MTN Mobile Money'
+          });
         }
-      } catch (error) {
-        addMessage('bot', 'Error processing file. Please try again.');
-      } finally {
-        setLoading(false);
       }
-    };
-    reader.readAsText(file);
+
+      if (toInsert.length > 0) {
+        const { error: insertErr } = await supabase
+          .from('transactions')
+          .insert(toInsert);
+        if (insertErr) throw insertErr;
+      }
+
+      // Calculate summary statistics
+      const totalIncome = parsedTransactions
+        .filter(t => t.isIncome)
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const totalExpenses = parsedTransactions
+        .filter(t => t.isExpense)
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const netBalance = totalIncome - totalExpenses;
+
+      const categoryBreakdown = {};
+      parsedTransactions.forEach(t => {
+        const cat = t.category || 'Other';
+        categoryBreakdown[cat] = (categoryBreakdown[cat] || 0) + t.amount;
+      });
+
+      const contacts = {};
+      parsedTransactions.forEach(t => {
+        if (t.sender) contacts[t.sender] = (contacts[t.sender] || 0) + t.amount;
+        if (t.receiver) contacts[t.receiver] = (contacts[t.receiver] || 0) + t.amount;
+      });
+
+      const sortedContacts = Object.entries(contacts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+
+      const summary = {
+        totalTransactions: parsedTransactions.length,
+        totalIncome,
+        totalExpenses,
+        netBalance,
+        categoryBreakdown,
+        topContacts: sortedContacts,
+        dateRange: {
+          start: parsedTransactions.length > 0 ? parsedTransactions[parsedTransactions.length - 1].date : null,
+          end: parsedTransactions.length > 0 ? parsedTransactions[0].date : null
+        }
+      };
+
+      const result = {
+        success: true,
+        fileName: file.name,
+        fileSize: file.size,
+        recordCount: parsedTransactions.length,
+        transactions: parsedTransactions,
+        summary
+      };
+
+      setFileAnalysis(result);
+      addMessage('bot', `✅ I've successfully uploaded your file with ${result.recordCount || 'multiple'} records. I can now analyze your data. What would you like to know?`);
+      await fetchExpenditureData();
+    } catch (error) {
+      console.error('Error processing upload:', error);
+      addMessage('bot', 'I had trouble processing your file. Please ensure it has standard financial columns.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const addMessage = (type, content) => {
@@ -205,6 +780,7 @@ export default function ChatbotAnalytics({ user, token }) {
 
   const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
+    if (!user?.id) return;
 
     const userQuery = inputValue;
     addMessage('user', userQuery);
@@ -213,28 +789,203 @@ export default function ChatbotAnalytics({ user, token }) {
     setIsTyping(true);
 
     try {
-      const response = await fetch('/api/chatbot-analytics/analyze', {
+      const openRouterApiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
+
+      if (!openRouterApiKey) {
+        addMessage('bot', 'I apologize, but the AI service is not properly configured. Please contact support.');
+        return;
+      }
+
+      // Build context for AI with various data sources
+      let context = `You are a financial advisor AI assistant helping users understand their financial situation, including SMS transactions, website store purchases, manually recorded expenses, and income.\n\n`;
+
+      let activeTransactions = [];
+
+      // Check if we have fileAnalysis
+      if (fileAnalysis && fileAnalysis.transactions && fileAnalysis.transactions.length > 0) {
+        activeTransactions = fileAnalysis.transactions;
+      } else {
+        // Fetch database transactions, expenses, income, orders
+        const { data: dbTransactions } = await supabase
+          .from('transactions')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('transaction_date', { ascending: false })
+          .limit(200);
+
+        const { data: dbExpenses } = await supabase
+          .from('expenses')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('date', { ascending: false })
+          .limit(100);
+
+        const { data: dbIncome } = await supabase
+          .from('income')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('date', { ascending: false })
+          .limit(50);
+
+        const { data: dbOrders } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        const mappedTransactions = (dbTransactions || []).map(t => ({
+          date: t.transaction_date,
+          amount: parseFloat(t.amount),
+          category: t.category || 'Transaction',
+          description: t.description,
+          isIncome: t.transaction_type === 'credit',
+          isExpense: t.transaction_type === 'debit',
+          transactionType: t.transaction_type === 'credit' ? 'receive' : 'payment',
+          source: 'SMS/Bank'
+        }));
+
+        const mappedExpenses = (dbExpenses || []).map(e => ({
+          date: e.date,
+          amount: parseFloat(e.amount),
+          category: e.category || 'Expense',
+          description: e.description,
+          isIncome: false,
+          isExpense: true,
+          transactionType: 'payment',
+          source: 'Manual Expense'
+        }));
+
+        const mappedIncome = (dbIncome || []).map(i => ({
+          date: i.date,
+          amount: parseFloat(i.amount),
+          category: i.category || 'Income',
+          description: i.source,
+          isIncome: true,
+          isExpense: false,
+          transactionType: 'receive',
+          source: 'Income Record'
+        }));
+
+        const mappedOrders = (dbOrders || []).map(o => {
+          let items = [];
+          try { items = typeof o.items_json === 'string' ? JSON.parse(o.items_json) : (o.items_json || []); } catch (e) {}
+          const desc = items.map(i => i.name).join(', ') || 'Store Purchase';
+          return {
+            date: o.created_at,
+            amount: parseFloat(o.total_amount),
+            category: 'Store Purchase',
+            description: desc,
+            isIncome: false,
+            isExpense: true,
+            transactionType: 'payment',
+            source: 'Website Store'
+          };
+        });
+
+        activeTransactions = [...mappedTransactions, ...mappedExpenses, ...mappedIncome, ...mappedOrders];
+      }
+
+      if (activeTransactions.length > 0) {
+        const totalIncome = activeTransactions.filter(t => t.isIncome).reduce((s, t) => s + t.amount, 0);
+        const totalExpenses = activeTransactions.filter(t => t.isExpense).reduce((s, t) => s + t.amount, 0);
+        const netBalance = totalIncome - totalExpenses;
+
+        context += `📊 **Financial Data Analysis Summary**\n`;
+        context += `• Total Records: ${activeTransactions.length}\n`;
+        context += `• Total Income: CFA ${totalIncome.toLocaleString()}\n`;
+        context += `• Total Expenses: CFA ${totalExpenses.toLocaleString()}\n`;
+        context += `• Net Balance: CFA ${netBalance.toLocaleString()}\n\n`;
+
+        // Category breakdown
+        const categories = {};
+        activeTransactions.forEach(t => {
+          const cat = t.category || 'Other';
+          categories[cat] = (categories[cat] || 0) + t.amount;
+        });
+
+        context += `📂 **Category Breakdown:**\n`;
+        Object.entries(categories)
+          .sort((a, b) => b[1] - a[1])
+          .forEach(([cat, amount]) => {
+            context += `• ${cat}: CFA ${amount.toLocaleString()}\n`;
+          });
+
+        // Top transactions
+        context += `\n💰 **Largest Transactions:**\n`;
+        activeTransactions
+          .slice()
+          .sort((a, b) => b.amount - a.amount)
+          .slice(0, 10)
+          .forEach(t => {
+            let dateStr = t.date;
+            if (t.date instanceof Date) {
+              dateStr = t.date.toISOString().split('T')[0];
+            }
+            context += `• ${dateStr}: [${t.source || 'Unknown'}] ${t.description || t.transactionType} - CFA ${t.amount.toLocaleString()}\n`;
+          });
+
+        context += `\n\nUser Query: ${userQuery}\n\n`;
+        context += `Provide specific, actionable financial advice based on this comprehensive financial data (including website purchases, recorded expenses, and income).`;
+
+      } else if (expenditureData) {
+        context += `📊 **Expenditure Data:**\n`;
+        context += `• Total Monthly Expenditure: CFA ${expenditureData.totalExpenditure || 0}\n`;
+        context += `• Average Daily Spending: CFA ${expenditureData.averageDaily || 0}\n`;
+        context += `• Top Spending Category: ${expenditureData.topCategory}\n`;
+        context += `• Total Transactions: ${expenditureData.transactionCount || 0}\n\n`;
+        context += `User Query: ${userQuery}\n\n`;
+        context += `Provide helpful, specific financial advice based on the data provided.`;
+      } else {
+        context += `No financial data available yet. Please log some expenses, income, make store purchases, or upload an SMS export file.\n\n`;
+        context += `User Query: ${userQuery}\n\n`;
+        context += `Provide general financial advice and encourage the user to log their financial data on the website.`;
+      }
+
+      const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openRouterApiKey}`,
+          'HTTP-Referer': window.location.origin,
+          'X-OpenRouter-Title': 'FinVision AI Assistant'
         },
-        body: JSON.stringify({ 
-          query: userQuery, 
-          hasFileData: !!fileData, 
-          expenditureData, 
-          fileAnalysis 
+        body: JSON.stringify({
+          model: 'openai/gpt-3.5-turbo',
+          messages: [
+            {
+              role: 'system',
+              content: context
+            },
+            {
+              role: 'user',
+              content: userQuery
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 800
         })
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        addMessage('bot', result.analysis || 'I could not generate a response.');
+      if (openRouterResponse.ok) {
+        const result = await openRouterResponse.json();
+        const analysis = result.choices[0]?.message?.content || 'I could not generate a response.';
+        addMessage('bot', analysis);
+
+        // Store conversation in database
+        await supabase
+          .from('chatbot_conversations')
+          .insert({
+            user_id: user.id,
+            query: userQuery,
+            response: analysis
+          });
       } else {
-        const errorData = await response.json().catch(() => ({}));
-        addMessage('bot', errorData.analysis || 'I encountered an error analyzing your request. Please check your AI service configuration.');
+        const errorData = await openRouterResponse.json().catch(() => ({}));
+        addMessage('bot', errorData.message || 'I encountered an error analyzing your request. Please check your AI service configuration.');
       }
     } catch (error) {
+      console.error('Error in send message:', error);
       addMessage('bot', "Sorry, I'm unable to connect to the AI service. Please try again later.");
     } finally {
       setLoading(false);
