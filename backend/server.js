@@ -2600,7 +2600,12 @@ app.get('*', (req, res) => {
   return res.sendFile(path.join(publicDir, 'index.html'));
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`FinVision server running on port ${PORT}`);
-});
+// Start the server only when this file is executed directly (e.g., local dev)
+if (require.main === module && !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Server listening on port ${PORT}`);
+  });
+}
+
+// Export the app for Vercel serverless functions
+module.exports = app;
