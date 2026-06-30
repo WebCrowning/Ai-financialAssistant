@@ -1081,8 +1081,8 @@ export default function ChatbotAnalytics({ user, token }) {
             <i className="fas fa-brain" style={{ color: COLORS.white, fontSize: '24px' }}></i>
           </div>
           <div>
-            <h1 style={styles.title}>Financial AI Analyst</h1>
-            <p style={styles.subtitle}>Advanced expenditure analytics powered by intelligent insights</p>
+            <h1 style={styles.title} className="header-title">Financial AI Analyst</h1>
+            <p style={styles.subtitle} className="header-subtitle">Advanced expenditure analytics powered by intelligent insights</p>
           </div>
         </div>
         <div style={styles.headerRight} className="header-right">
@@ -1095,11 +1095,11 @@ export default function ChatbotAnalytics({ user, token }) {
             <i className="fas fa-trash-can" style={{ marginRight: '6px' }}></i>
             Clear Chat
           </button>
-          <div style={styles.statusBadge}>
+          <div style={styles.statusBadge} className="status-badge">
             <span style={styles.statusDot}></span>
             <span style={styles.statusText}>AI Online</span>
           </div>
-          <div style={styles.userBadge}>
+          <div style={styles.userBadge} className="user-badge">
             <i className="fas fa-user-circle" style={{ color: COLORS.primary, fontSize: '20px' }}></i>
             <span style={styles.userName}>{userDisplayName}</span>
           </div>
@@ -1110,7 +1110,7 @@ export default function ChatbotAnalytics({ user, token }) {
         {/* Chat / Insights Section */}
         <div style={styles.chatContainer} className="chat-container">
           {/* Tabs */}
-          <div style={styles.tabsContainer}>
+          <div style={styles.tabsContainer} className="tabs-container">
             <button
               onClick={() => setActiveTab('chat')}
               style={{
@@ -1192,8 +1192,8 @@ export default function ChatbotAnalytics({ user, token }) {
                 </div>
 
                 {/* Input Area */}
-                <div style={styles.inputArea}>
-                  <div style={styles.inputWrapper}>
+                <div style={styles.inputArea} className="input-area">
+                  <div style={styles.inputWrapper} className="input-wrapper">
                     <input
                       type="text"
                       value={inputValue}
@@ -1202,6 +1202,7 @@ export default function ChatbotAnalytics({ user, token }) {
                       placeholder="Ask about your spending..."
                       disabled={loading}
                       style={styles.chatInput}
+                      className="chat-input"
                     />
                     <button
                       onClick={handleSendMessage}
@@ -1211,6 +1212,7 @@ export default function ChatbotAnalytics({ user, token }) {
                         opacity: (loading || !inputValue.trim()) ? 0.5 : 1,
                         cursor: (loading || !inputValue.trim()) ? 'not-allowed' : 'pointer'
                       }}
+                      className="send-button"
                     >
                       {loading ? (
                         <i className="fas fa-spinner fa-spin"></i>
@@ -1482,8 +1484,12 @@ export default function ChatbotAnalytics({ user, token }) {
         </div>
       </div>
 
-      {/* Keyframes for animations */}
+      {/* CSS Rules & Keyframes */}
       <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
@@ -1496,11 +1502,26 @@ export default function ChatbotAnalytics({ user, token }) {
           0%, 60%, 100% { transform: translateY(0); }
           30% { transform: translateY(-10px); }
         }
+        
+        .messages-container::-webkit-scrollbar {
+          width: 6px;
+        }
+        .messages-container::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .messages-container::-webkit-scrollbar-thumb {
+          background: ${COLORS.gray[300]};
+          border-radius: 3px;
+        }
+        .messages-container::-webkit-scrollbar-thumb:hover {
+          background: ${COLORS.gray[400]};
+        }
+        
         .typing-dot:nth-child(1) { animation-delay: 0s; }
         .typing-dot:nth-child(2) { animation-delay: 0.2s; }
         .typing-dot:nth-child(3) { animation-delay: 0.4s; }
         
-        .chat-input:focus {
+        .input-wrapper:focus-within {
           border-color: ${COLORS.primary} !important;
           box-shadow: 0 0 0 3px ${COLORS.primaryLight} !important;
         }
@@ -1538,6 +1559,66 @@ export default function ChatbotAnalytics({ user, token }) {
           color: ${COLORS.white} !important;
           transform: translateY(-1px);
           box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
+        }
+        
+        /* Responsive tweaks */
+        @media (max-width: 1024px) {
+          .main-grid {
+            grid-template-columns: 1fr !important;
+            height: auto !important;
+            gap: 16px !important;
+          }
+          .chat-container {
+            height: 500px !important;
+          }
+          .sidebar {
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+          }
+          .sidebar > * {
+            flex: 1 !important;
+            min-width: 280px !important;
+          }
+        }
+        
+        @media (max-width: 640px) {
+          .header {
+            flex-direction: row !important;
+            justify-content: space-between !important;
+            padding: 12px 14px !important;
+            margin-bottom: 12px !important;
+            border-radius: 12px !important;
+          }
+          .header-left {
+            gap: 8px !important;
+          }
+          .header-title {
+            font-size: 16px !important;
+          }
+          .header-subtitle {
+            display: none !important;
+          }
+          .header-right {
+            gap: 6px !important;
+            width: auto !important;
+          }
+          .user-badge {
+            display: none !important;
+          }
+          .clear-history-button {
+            padding: 6px 10px !important;
+            font-size: 11px !important;
+          }
+          .status-badge {
+            padding: 4px 8px !important;
+            font-size: 11px !important;
+          }
+          .message-bubble {
+            max-width: 88% !important;
+          }
+          .container {
+            padding: 12px !important;
+          }
         }
       `}</style>
     </div>
@@ -1738,15 +1819,17 @@ const styles = {
     color: COLORS.gray[600],
   },
   messageBubble: {
-    maxWidth: '75%',
-    padding: '14px 18px',
-    borderRadius: '12px',
+    maxWidth: '78%',
+    padding: '12px 16px',
+    borderRadius: '16px',
     wordWrap: 'break-word',
-    lineHeight: '1.6',
+    lineHeight: '1.5',
+    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
   },
   messageBubbleBot: {
-    background: COLORS.gray[50],
+    background: '#f8fafc',
     color: COLORS.gray[900],
+    border: '1px solid #e2e8f0',
     borderTopLeftRadius: '4px',
   },
   messageBubbleUser: {
@@ -1767,7 +1850,8 @@ const styles = {
     opacity: 0.6,
   },
   typingBubble: {
-    background: COLORS.gray[50],
+    background: '#f8fafc',
+    border: '1px solid #e2e8f0',
     padding: '12px 18px',
   },
   typingDots: {
@@ -1783,38 +1867,42 @@ const styles = {
     animation: 'bounce 1.4s infinite',
   },
   inputArea: {
-    padding: '16px 20px',
+    padding: '12px 16px',
     borderTop: `1px solid ${COLORS.gray[200]}`,
-    background: COLORS.gray[50],
+    background: COLORS.white,
     flexShrink: 0,
   },
   inputWrapper: {
     display: 'flex',
-    gap: '12px',
+    gap: '8px',
     alignItems: 'center',
+    background: COLORS.gray[50],
+    borderRadius: '24px',
+    padding: '4px 6px 4px 16px',
+    border: `1px solid ${COLORS.gray[200]}`,
   },
   chatInput: {
     flex: 1,
-    padding: '12px 16px',
-    border: `1px solid ${COLORS.gray[200]}`,
-    borderRadius: '10px',
+    border: 'none',
+    background: 'transparent',
     fontSize: '14px',
-    background: COLORS.white,
     color: COLORS.gray[900],
     outline: 'none',
-    transition: 'all 0.2s',
+    padding: '8px 0',
   },
   sendButton: {
-    padding: '12px 20px',
+    width: '36px',
+    height: '36px',
+    borderRadius: '50%',
     background: COLORS.primary,
     border: 'none',
-    borderRadius: '10px',
     color: COLORS.white,
     cursor: 'pointer',
     transition: 'all 0.2s',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   disclaimer: {
     margin: '8px 0 0 0',
@@ -2099,90 +2187,3 @@ const styles = {
     textAlign: 'right',
   },
 };
-
-// Inject keyframes
-if (typeof document !== 'undefined') {
-  const styleId = 'chatbot-analytics-styles';
-  if (!document.getElementById(styleId)) {
-    const styleSheet = document.createElement('style');
-    styleSheet.id = styleId;
-    styleSheet.textContent = `
-      @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-      @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
-      }
-      @keyframes bounce {
-        0%, 60%, 100% { transform: translateY(0); }
-        30% { transform: translateY(-10px); }
-      }
-      
-      .messages-container::-webkit-scrollbar {
-        width: 6px;
-      }
-      .messages-container::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      .messages-container::-webkit-scrollbar-thumb {
-        background: ${COLORS.gray[300]};
-        border-radius: 3px;
-      }
-      .messages-container::-webkit-scrollbar-thumb:hover {
-        background: ${COLORS.gray[400]};
-      }
-      
-      @media (max-width: 1024px) {
-        .main-grid {
-          grid-template-columns: 1fr !important;
-          height: auto !important;
-          gap: 16px !important;
-        }
-        .chat-container {
-          height: 500px !important;
-        }
-        .sidebar {
-          flex-direction: row !important;
-          flex-wrap: wrap !important;
-        }
-        .sidebar > * {
-          flex: 1 !important;
-          min-width: 280px !important;
-        }
-      }
-      
-      @media (max-width: 640px) {
-        .header {
-          flex-direction: column !important;
-          text-align: center !important;
-          padding: 16px !important;
-        }
-        .header-left {
-          flex-direction: column !important;
-        }
-        .header-right {
-          flex-wrap: wrap !important;
-          justify-content: center !important;
-          width: 100% !important;
-        }
-        .header-right > * {
-          flex: 1 1 auto !important;
-          justify-content: center !important;
-        }
-        .message-bubble {
-          max-width: 90% !important;
-        }
-        .container {
-          padding: 12px !important;
-        }
-      }
-    `;
-    document.head.appendChild(styleSheet);
-  }
-}
