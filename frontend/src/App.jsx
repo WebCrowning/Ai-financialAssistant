@@ -54,6 +54,65 @@ import {
   ShoppingBag
 } from 'lucide-react';
 
+// ── Bottom Mobile Navigation Bar ──────────────────────────────────────────
+function BottomNav({ currentPage, onPageChange, isAdmin }) {
+  const items = isAdmin ? [
+    { id: 'admin-user-transactions', label: 'Monitor', icon: <CreditCard size={22} /> },
+    { id: 'admin-account', label: 'Overview', icon: <Users size={22} /> },
+    { id: 'fraud-live', label: 'Live', icon: <Activity size={22} /> },
+    { id: 'admin-store', label: 'Store', icon: <ShoppingBag size={22} /> },
+    { id: 'admin-jobs', label: 'Jobs', icon: <Target size={22} /> },
+  ] : [
+    { id: 'dashboard', label: 'Home', icon: <LayoutDashboard size={22} /> },
+    { id: 'transactions', label: 'History', icon: <CreditCard size={22} /> },
+    { id: 'chatbot-analytics', label: 'AI', icon: <Brain size={22} /> },
+    { id: 'deposit', label: 'Deposit', icon: <Wallet size={22} /> },
+    { id: 'profile', label: 'Profile', icon: <User size={22} /> },
+  ];
+
+  return (
+    <nav style={{
+      display: 'none',  // shown via CSS media query
+      position: 'fixed',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      zIndex: 1100,
+      background: 'linear-gradient(180deg, #030712 0%, #090d16 100%)',
+      borderTop: '1px solid rgba(255,255,255,0.06)',
+      paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+    }} className="bottom-nav no-print">
+      {items.map(item => (
+        <button
+          key={item.id}
+          onClick={() => onPageChange(item.id)}
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '3px',
+            padding: '10px 4px',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            color: currentPage === item.id ? '#3b82f6' : '#64748b',
+            borderTop: currentPage === item.id ? '2px solid #3b82f6' : '2px solid transparent',
+            transition: 'color 150ms ease, border-color 150ms ease',
+            minHeight: '56px',
+          }}
+        >
+          {item.icon}
+          <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
+            {item.label}
+          </span>
+        </button>
+      ))}
+    </nav>
+  );
+}
+
 // Icon mapping component
 const IconComponent = ({ iconName, size = 18, image }) => {
   if (image) {
@@ -398,9 +457,14 @@ function MainApp() {
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
       />
-      <main className={`main-content ${isSidebarOpen ? '' : 'is-collapsed'}`}>
+      <main className={`main-content ${isSidebarOpen ? '' : 'is-collapsed'}`} style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}>
         {renderPage()}
       </main>
+      <BottomNav
+        currentPage={currentPage}
+        onPageChange={(id) => { setCurrentPage(id); setMobileMenuOpen(false); }}
+        isAdmin={user?.role === 'admin'}
+      />
     </>
   );
 }

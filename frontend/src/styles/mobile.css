@@ -1,0 +1,549 @@
+/* ============================================================
+   FINVISION – MOBILE RESPONSIVENESS
+   Comprehensive breakpoint system for all dashboard pages
+   Breakpoints: 480px (xs), 640px (sm), 768px (md), 1024px (lg)
+   ============================================================ */
+
+/* ── 1. ROOT MOBILE FONT SCALE ────────────────────────────── */
+@media (max-width: 480px) {
+  :root {
+    --font-size-xs: 10px;
+    --font-size-sm: 12px;
+    --font-size-base: 13px;
+    --font-size-md: 14px;
+    --font-size-lg: 15px;
+    --font-size-xl: 17px;
+    --font-size-2xl: 20px;
+    --font-size-3xl: 22px;
+    --font-size-4xl: 26px;
+    --space-6: 16px;
+    --space-7: 20px;
+    --space-8: 24px;
+  }
+}
+
+/* ── 2. LAYOUT: SIDEBAR + MAIN ───────────────────────────── */
+
+/* Hide floating sidebar toggle on mobile (mobile-header handles nav) */
+@media (max-width: 1024px) {
+  .sidebar-toggle-btn { display: none !important; }
+}
+
+/* Main content area: remove sidebar margin on small screens */
+@media (max-width: 1024px) {
+  .main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+    padding-top: calc(60px + 1rem) !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    padding-bottom: 2rem !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .main-content {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+}
+
+/* ── 3. PAGE HEADER ──────────────────────────────────────── */
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .page-header h1,
+  h1 {
+    font-size: 1.4rem !important;
+    letter-spacing: -0.01em;
+  }
+
+  .page-header .subtitle {
+    font-size: 0.85rem;
+  }
+
+  .page-header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .page-header-actions .btn,
+  .page-header-actions button {
+    flex: 1 1 auto;
+    min-width: 120px;
+    font-size: 0.8rem;
+    padding: 8px 12px;
+    justify-content: center;
+  }
+}
+
+/* ── 4. STATS GRID ───────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+  }
+
+  .stat-card .stat-value {
+    font-size: 1.5rem !important;
+  }
+
+  .stat-card {
+    padding: 14px !important;
+  }
+}
+
+/* ── 5. QUICK ACTIONS ────────────────────────────────────── */
+@media (max-width: 768px) {
+  .quick-actions {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .quick-actions {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px;
+  }
+
+  .quick-action {
+    padding: 12px 8px;
+  }
+
+  .quick-action .icon {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+  }
+
+  .quick-action .label {
+    font-size: 0.7rem;
+    text-align: center;
+  }
+
+  .quick-action .description {
+    display: none; /* Hide description on very small screens */
+  }
+}
+
+/* ── 6. CARDS ────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .card-header {
+    padding: 12px 14px 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .card-header h3 {
+    font-size: 0.95rem;
+  }
+
+  .card-body {
+    padding: 14px;
+  }
+
+  .card-footer {
+    padding: 10px 14px;
+  }
+}
+
+/* ── 7. CHART CONTAINERS ─────────────────────────────────── */
+@media (max-width: 768px) {
+  .chart-container {
+    padding: 14px;
+  }
+
+  .chart-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .chart-header h3 {
+    font-size: 0.95rem;
+  }
+
+  .chart-tabs {
+    width: 100%;
+    overflow-x: auto;
+    display: flex;
+    gap: 4px;
+    flex-wrap: nowrap;
+    padding-bottom: 2px;
+  }
+
+  .chart-tabs button {
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 6px 10px;
+    font-size: 0.7rem;
+  }
+}
+
+/* ── 8. TABLES ───────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -14px;
+    padding: 0 14px;
+    border-radius: 0;
+  }
+
+  .table {
+    min-width: 480px; /* Forces scroll, prevents squeezing */
+  }
+
+  .table thead th,
+  .table tbody td {
+    padding: 8px 10px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+}
+
+/* ── 9. FORM LAYOUTS ─────────────────────────────────────── */
+@media (max-width: 640px) {
+  /* 2-col form grids stack to 1 */
+  .form-grid-2,
+  [style*="grid-template-columns: 1fr 1fr"],
+  [style*="gridTemplateColumns: '1fr 1fr'"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Form inputs full-width on mobile */
+  .form-input,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="date"],
+  input[type="time"],
+  textarea,
+  select {
+    font-size: 16px !important; /* Prevent iOS auto-zoom */
+  }
+}
+
+/* ── 10. FLEX ROW → COLUMN STACKING ──────────────────────── */
+@media (max-width: 768px) {
+  /* Generic row stacking utility */
+  .responsive-row {
+    flex-direction: column !important;
+  }
+
+  /* Override common inline flex rows in components */
+  [style*="display: flex"][style*="gap"] > * {
+    min-width: 0; /* Prevent flex items from overflowing */
+  }
+}
+
+/* ── 11. DASHBOARD SPECIFIC GRIDS ───────────────────────── */
+
+/* Finance Dashboard layout */
+@media (max-width: 768px) {
+  /* Two-column content grids → single column */
+  .grid-cols-2,
+  [style*="grid-template-columns: 1fr 1fr"],
+  [style*="gridTemplateColumns: '1fr 1fr'"],
+  [style*="repeat(2, 1fr)"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Three-column grids → two columns */
+  .grid-cols-3,
+  [style*="repeat(3, 1fr)"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Four-column grids → two columns */
+  .grid-cols-4,
+  [style*="repeat(4, 1fr)"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* All multi-column grids → single column on xs */
+  .grid-cols-2,
+  .grid-cols-3,
+  .grid-cols-4,
+  [style*="repeat(2, 1fr)"],
+  [style*="repeat(3, 1fr)"],
+  [style*="repeat(4, 1fr)"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── 12. TRANSACTION LIST ────────────────────────────────── */
+@media (max-width: 640px) {
+  .transaction-item {
+    padding: 10px 8px;
+    gap: 10px;
+  }
+
+  .transaction-item .tx-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+
+  .transaction-item .tx-details .tx-name {
+    font-size: 0.8rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+  }
+
+  .transaction-item .tx-details .tx-meta {
+    font-size: 0.65rem;
+    gap: 6px;
+  }
+
+  .transaction-item .tx-amount {
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+}
+
+/* ── 13. BUDGET BARS ─────────────────────────────────────── */
+@media (max-width: 640px) {
+  .budget-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+  }
+
+  .budget-item {
+    padding: 12px;
+  }
+}
+
+/* ── 14. VIRTUAL CARDS ───────────────────────────────────── */
+@media (max-width: 640px) {
+  /* Card stack view: full-width cards */
+  .virtual-card,
+  [class*="card-front"],
+  [class*="card-back"] {
+    width: 100% !important;
+    max-width: 340px !important;
+    height: auto !important;
+    min-height: 190px !important;
+    margin: 0 auto !important;
+  }
+}
+
+/* ── 15. MODALS / OVERLAYS ───────────────────────────────── */
+@media (max-width: 640px) {
+  /* Full-screen modals on mobile */
+  [style*="position: fixed"][style*="inset"],
+  [style*="position: fixed"][style*="top: 0"][style*="left: 0"] {
+    align-items: flex-end !important;
+  }
+
+  .modal-content,
+  [style*="border-radius"][style*="padding: 24px"],
+  [style*="border-radius"][style*="padding: 32px"] {
+    border-radius: 16px 16px 0 0 !important;
+    max-height: 90vh;
+    overflow-y: auto;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* ── 16. SAVINGS GOALS ───────────────────────────────────── */
+@media (max-width: 640px) {
+  .goal-card,
+  [class*="goal"],
+  [class*="savings"] {
+    padding: 12px !important;
+  }
+}
+
+/* ── 17. NOTIFICATIONS ───────────────────────────────────── */
+@media (max-width: 640px) {
+  .notification-item,
+  [class*="notification"] {
+    padding: 10px 12px !important;
+    font-size: 0.8rem !important;
+  }
+}
+
+/* ── 18. PROFILE PAGE ────────────────────────────────────── */
+@media (max-width: 640px) {
+  [style*="display: flex"][style*="align-items: center"][style*="gap"] .profile-avatar,
+  .profile-avatar,
+  [style*="border-radius: 50%"][style*="width: 80"],
+  [style*="border-radius: 50%"][style*="width: 100"] {
+    width: 64px !important;
+    height: 64px !important;
+  }
+}
+
+/* ── 19. CHATBOT / AI ASSISTANT ──────────────────────────── */
+@media (max-width: 768px) {
+  /* Main chatbot two-panel layout → stacked */
+  [style*="display: grid"][style*="1fr 300px"],
+  [style*="display: grid"][style*="1fr 320px"],
+  [style*="display: grid"][style*="1fr 350px"],
+  [style*="gridTemplateColumns"][style*="300px"],
+  [style*="gridTemplateColumns"][style*="320px"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Chatbot input row */
+  [style*="display: flex"][style*="gap"][style*="align-items: center"] input[type="text"],
+  [style*="display: flex"][style*="gap"][style*="align-items: center"] textarea {
+    font-size: 16px !important; /* prevent iOS zoom */
+  }
+}
+
+/* ── 20. STORE / SIMULATION ──────────────────────────────── */
+@media (max-width: 768px) {
+  [style*="grid-template-columns: repeat(3"],
+  [style*="gridTemplateColumns: 'repeat(3"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  [style*="grid-template-columns: repeat(3"],
+  [style*="gridTemplateColumns: 'repeat(3"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── 21. DEPOSIT / TRANSFER ──────────────────────────────── */
+@media (max-width: 640px) {
+  /* Steps row → vertical on mobile */
+  [style*="display: flex"][style*="justify-content: space-between"] .step,
+  .steps-row {
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+}
+
+/* ── 22. ANALYTICS / SPENDING OVERVIEW ───────────────────── */
+@media (max-width: 640px) {
+  /* Legend items: wrap */
+  .chart-legend,
+  [style*="display: flex"][style*="flex-wrap"] {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+}
+
+/* ── 23. ADMIN PAGES ─────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Admin table toolbar */
+  [style*="display: flex"][style*="justify-content: space-between"][style*="align-items: center"] {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+}
+
+/* ── 24. LOCAL JOBS ──────────────────────────────────────── */
+@media (max-width: 640px) {
+  .job-card,
+  [class*="job-card"] {
+    padding: 12px !important;
+  }
+}
+
+/* ── 25. BUTTONS – MOBILE SIZING ─────────────────────────── */
+@media (max-width: 480px) {
+  .btn,
+  button.btn {
+    padding: 8px 14px !important;
+    font-size: 0.8rem !important;
+  }
+
+  .btn-lg {
+    padding: 10px 18px !important;
+    font-size: 0.85rem !important;
+  }
+
+  .btn-sm {
+    padding: 5px 10px !important;
+    font-size: 0.72rem !important;
+  }
+}
+
+/* ── 26. SECTION SPACING ─────────────────────────────────── */
+@media (max-width: 768px) {
+  section,
+  .section {
+    margin-bottom: 20px !important;
+  }
+}
+
+/* ── 27. TEXT OVERFLOW PROTECTION ────────────────────────── */
+@media (max-width: 640px) {
+  h1, h2, h3, h4 {
+    word-break: break-word;
+  }
+
+  .truncate-mobile {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 180px;
+  }
+}
+
+/* ── 28. HORIZONTAL SCROLL WRAPPERS ──────────────────────── */
+.scroll-x-mobile {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+@media (max-width: 768px) {
+  .scroll-x-mobile {
+    margin-left: -0.75rem;
+    margin-right: -0.75rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+}
+
+/* ── 29. BOTTOM PADDING for devices with home indicator ─── */
+@media (max-width: 768px) {
+  .main-content {
+    padding-bottom: env(safe-area-inset-bottom, 1.5rem) !important;
+  }
+}
+
+/* ── 30. TOUCH TARGETS – MINIMUM 44px ────────────────────── */
+@media (max-width: 768px) {
+  button,
+  .btn,
+  .nav-item,
+  a[class] {
+    min-height: 44px;
+  }
+
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+  }
+}

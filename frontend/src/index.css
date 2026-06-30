@@ -802,6 +802,24 @@ tbody tr:hover {
   }
 }
 
+/* Bottom Navigation Bar – mobile only */
+@media (max-width: 1024px) {
+  .bottom-nav {
+    display: flex !important;  /* override the inline display:none on desktop */
+    flex-direction: row;
+    align-items: stretch;
+    width: 100%;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* Push main content up so nothing hides behind the bottom bar */
+  .main-content {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom, 8px)) !important;
+  }
+}
+
+
 @media print {
   body {
     background: white !important;
