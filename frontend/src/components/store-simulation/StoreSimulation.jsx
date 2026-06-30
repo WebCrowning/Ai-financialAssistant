@@ -288,7 +288,7 @@ export default function StoreSimulation({ token, user }) {
         JSON.parse(localStorage.getItem('user') || 'null')?.id;
 
       const { data, error } = await supabase
-        .from('store_orders')
+        .from('orders')
         .select('*')
         .eq('user_id', resolvedUserId)
         .order('created_at', { ascending: false });
