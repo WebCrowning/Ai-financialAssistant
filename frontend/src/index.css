@@ -805,7 +805,7 @@ tbody tr:hover {
 /* Bottom Navigation Bar – mobile only */
 @media (max-width: 1024px) {
   .bottom-nav {
-    display: flex !important;  /* override the inline display:none on desktop */
+    display: flex !important;
     flex-direction: row;
     align-items: stretch;
     width: 100%;
@@ -813,11 +813,22 @@ tbody tr:hover {
     -webkit-backdrop-filter: blur(12px);
   }
 
+  /* More drawer also shown on mobile */
+  .mobile-more-drawer {
+    display: block !important;
+  }
+
+  /* Hide the old dropdown – fully removed from markup but keeping this as safety */
+  .mobile-dropdown {
+    display: none !important;
+  }
+
   /* Push main content up so nothing hides behind the bottom bar */
   .main-content {
-    padding-bottom: calc(64px + env(safe-area-inset-bottom, 8px)) !important;
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 8px)) !important;
   }
 }
+
 
 
 @media print {

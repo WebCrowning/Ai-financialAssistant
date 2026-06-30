@@ -54,62 +54,168 @@ import {
   ShoppingBag
 } from 'lucide-react';
 
-// ── Bottom Mobile Navigation Bar ──────────────────────────────────────────
-function BottomNav({ currentPage, onPageChange, isAdmin }) {
-  const items = isAdmin ? [
+// Page label map for mobile top bar
+const PAGE_LABELS = {
+  'dashboard': 'Dashboard', 'transactions': 'Transactions', 'accounts': 'Accounts',
+  'analytics': 'Analytics', 'budget': 'Budget', 'transfer': 'Transfer Money',
+  'chatbot-analytics': 'AI Assistant', 'notifications': 'Notifications',
+  'virtual-cards': 'Virtual Card', 'store-simulation': 'Store', 'deposit': 'Deposit',
+  'profile': 'My Profile', 'jobs': 'Local Jobs', 'admin-jobs': 'Jobs Admin',
+  'fraud-live': 'Live Dashboard', 'fraud-transactions': 'Flagged Transactions',
+  'fraud-analytics': 'Analytics', 'rule-engine': 'Rule Engine',
+  'alert-rules': 'Alert Rules', 'admin-store': 'Manage Store',
+  'admin-account': 'Account Overview', 'admin-user-transactions': 'Transactions Monitor'
+};
+
+// ── Smart Bottom Navigation with More Drawer ───────────────────
+function BottomNav({ currentPage, onPageChange, onLogout, isAdmin }) {
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
+
+  const primaryItems = isAdmin ? [
     { id: 'admin-user-transactions', label: 'Monitor', icon: <CreditCard size={22} /> },
     { id: 'admin-account', label: 'Overview', icon: <Users size={22} /> },
     { id: 'fraud-live', label: 'Live', icon: <Activity size={22} /> },
-    { id: 'admin-store', label: 'Store', icon: <ShoppingBag size={22} /> },
-    { id: 'admin-jobs', label: 'Jobs', icon: <Target size={22} /> },
+    { id: 'fraud-transactions', label: 'Flagged', icon: <AlertTriangle size={22} /> },
   ] : [
     { id: 'dashboard', label: 'Home', icon: <LayoutDashboard size={22} /> },
     { id: 'transactions', label: 'History', icon: <CreditCard size={22} /> },
     { id: 'chatbot-analytics', label: 'AI', icon: <Brain size={22} /> },
     { id: 'deposit', label: 'Deposit', icon: <Wallet size={22} /> },
-    { id: 'profile', label: 'Profile', icon: <User size={22} /> },
   ];
 
+  const drawerItems = isAdmin ? [
+    { id: 'fraud-analytics', label: 'Analytics', icon: <TrendingUp size={20} /> },
+    { id: 'rule-engine', label: 'Rule Engine', icon: <Settings size={20} /> },
+    { id: 'alert-rules', label: 'Alert Rules', icon: <Bell size={20} /> },
+    { id: 'admin-store', label: 'Manage Store', icon: <ShoppingBag size={20} /> },
+    { id: 'admin-jobs', label: 'Local Jobs Admin', icon: <Target size={20} /> },
+  ] : [
+    { id: 'virtual-cards', label: 'Virtual Card', icon: <CreditCard size={20} /> },
+    { id: 'store-simulation', label: 'Simulation Store', icon: <ShoppingBag size={20} /> },
+    { id: 'jobs', label: 'Local Jobs', icon: <Target size={20} /> },
+    { id: 'analytics', label: 'Analytics', icon: <TrendingUp size={20} /> },
+    { id: 'budget', label: 'Budget', icon: <DollarSign size={20} /> },
+    { id: 'transfer', label: 'Transfer Money', icon: <Send size={20} /> },
+    { id: 'notifications', label: 'Notifications', icon: <Bell size={20} /> },
+    { id: 'profile', label: 'My Profile', icon: <User size={20} /> },
+  ];
+
+  const navigate = (id) => { onPageChange(id); setDrawerOpen(false); };
+
+  // Check if current page is in drawer items
+  const isInDrawer = drawerItems.some(i => i.id === currentPage);
+
   return (
-    <nav style={{
-      display: 'none',  // shown via CSS media query
-      position: 'fixed',
-      bottom: 0,
-      left: 0,
-      right: 0,
-      zIndex: 1100,
-      background: 'linear-gradient(180deg, #030712 0%, #090d16 100%)',
-      borderTop: '1px solid rgba(255,255,255,0.06)',
-      paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-    }} className="bottom-nav no-print">
-      {items.map(item => (
-        <button
-          key={item.id}
-          onClick={() => onPageChange(item.id)}
+    <>
+      {/* Backdrop */}
+      {drawerOpen && (
+        <div
+          onClick={() => setDrawerOpen(false)}
           style={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '3px',
-            padding: '10px 4px',
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            color: currentPage === item.id ? '#3b82f6' : '#64748b',
-            borderTop: currentPage === item.id ? '2px solid #3b82f6' : '2px solid transparent',
-            transition: 'color 150ms ease, border-color 150ms ease',
-            minHeight: '56px',
+            position: 'fixed', inset: 0, zIndex: 1098,
+            background: 'rgba(0,0,0,0.55)',
+            backdropFilter: 'blur(2px)',
+          }}
+          className="no-print"
+        />
+      )}
+
+      {/* More Drawer – slides up from bottom */}
+      <div
+        className="no-print"
+        style={{
+          position: 'fixed',
+          left: 0, right: 0, bottom: 0,
+          zIndex: 1099,
+          background: 'linear-gradient(180deg, #0d1117 0%, #030712 100%)',
+          borderTop: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: '20px 20px 0 0',
+          padding: drawerOpen ? '20px 16px calc(80px + env(safe-area-inset-bottom, 0px))' : '0',
+          maxHeight: drawerOpen ? '75vh' : '0',
+          overflow: 'hidden',
+          transition: 'max-height 320ms cubic-bezier(0.4,0,0.2,1), padding 320ms ease',
+          boxShadow: drawerOpen ? '0 -8px 32px rgba(0,0,0,0.5)' : 'none',
+          display: 'none', // shown by CSS media query
+        }}
+        className="mobile-more-drawer no-print"
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <span style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>All Pages</span>
+          <button onClick={() => setDrawerOpen(false)} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: '8px', padding: '6px 8px', color: '#94a3b8', cursor: 'pointer' }}>
+            <X size={16} />
+          </button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+          {drawerItems.map(item => (
+            <button
+              key={item.id}
+              onClick={() => navigate(item.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '10px',
+                padding: '12px 14px',
+                background: currentPage === item.id ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.04)',
+                border: currentPage === item.id ? '1px solid rgba(59,130,246,0.4)' : '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '12px', cursor: 'pointer',
+                color: currentPage === item.id ? '#60a5fa' : '#cbd5e1',
+                fontSize: '13px', fontWeight: 500, textAlign: 'left',
+                transition: 'all 150ms ease',
+              }}
+            >
+              <span style={{ color: currentPage === item.id ? '#60a5fa' : '#64748b', flexShrink: 0 }}>{item.icon}</span>
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => { setDrawerOpen(false); onLogout(); }}
+          style={{
+            marginTop: '12px', width: '100%', padding: '12px',
+            background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+            borderRadius: '12px', color: '#f87171', fontSize: '13px', fontWeight: 600,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
           }}
         >
-          {item.icon}
-          <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
-            {item.label}
-          </span>
+          <LogOut size={16} /> Sign Out
         </button>
-      ))}
-    </nav>
+      </div>
+
+      {/* Bottom Tab Bar */}
+      <nav style={{
+        display: 'none',
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1100,
+        background: 'linear-gradient(180deg, #030712 0%, #090d16 100%)',
+        borderTop: '1px solid rgba(255,255,255,0.06)',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      }} className="bottom-nav no-print">
+
+        {primaryItems.map(item => (
+          <button key={item.id} onClick={() => navigate(item.id)} style={{
+            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'center', gap: '3px', padding: '10px 4px',
+            background: 'transparent', border: 'none', cursor: 'pointer',
+            color: currentPage === item.id ? '#3b82f6' : '#64748b',
+            borderTop: currentPage === item.id ? '2px solid #3b82f6' : '2px solid transparent',
+            transition: 'all 150ms ease', minHeight: '56px',
+          }}>
+            {item.icon}
+            <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>{item.label}</span>
+          </button>
+        ))}
+
+        {/* More tab */}
+        <button onClick={() => setDrawerOpen(v => !v)} style={{
+          flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', gap: '3px', padding: '10px 4px',
+          background: 'transparent', border: 'none', cursor: 'pointer',
+          color: (drawerOpen || isInDrawer) ? '#3b82f6' : '#64748b',
+          borderTop: (drawerOpen || isInDrawer) ? '2px solid #3b82f6' : '2px solid transparent',
+          transition: 'all 150ms ease', minHeight: '56px',
+        }}>
+          <Menu size={22} />
+          <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>More</span>
+        </button>
+      </nav>
+    </>
   );
 }
 
@@ -140,7 +246,7 @@ const IconComponent = ({ iconName, size = 18, image }) => {
   return iconMap[iconName] || null;
 };
 
-function Navigation({ user, currentPage, onPageChange, onLogout, isMobileMenuOpen, setMobileMenuOpen, isSidebarOpen, setIsSidebarOpen }) {
+function Navigation({ user, currentPage, onPageChange, onLogout, isSidebarOpen, setIsSidebarOpen }) {
   const isFinanceAdmin = user?.role === 'admin' || user?.is_fraud_admin;
 
   const financePages = [
@@ -255,67 +361,15 @@ function Navigation({ user, currentPage, onPageChange, onLogout, isMobileMenuOpe
         </button>
       )}
 
-      {/* Mobile Top Header */}
+      {/* Mobile Top Header – branding + current page name only */}
       <div className="mobile-header no-print">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Sparkle size={24} style={{ color: 'var(--sidebar-accent)' }} />
-          <strong style={{ fontSize: '1.1rem', color: '#fff', letterSpacing: '0.02em' }}>FinanceApp</strong>
+          <img src={logoImage} alt="FinVision" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
+          <strong style={{ fontSize: '1.05rem', color: '#fff', letterSpacing: '0.02em' }}>FinVision</strong>
         </div>
-        <button
-          onClick={() => setMobileMenuOpen(!isMobileMenuOpen)}
-          style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: '8px' }}
-          aria-label="Toggle Navigation Menu"
-        >
-          {isMobileMenuOpen ? <X size={26} /> : <Menu size={26} />}
-        </button>
-      </div>
-
-      {/* Mobile Dropdown Menu */}
-      <div className={`mobile-dropdown no-print ${isMobileMenuOpen ? 'is-open' : ''}`}>
-        <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--sidebar-muted)', fontWeight: '600', marginBottom: '8px', letterSpacing: '0.05em' }}>Main</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '20px' }}>
-          {financePages.map(page => (
-            <button
-              key={page.id}
-              onClick={() => { onPageChange(page.id); setMobileMenuOpen(false); }}
-              className={`nav-item ${currentPage === page.id ? 'active' : ''}`}
-              style={{ justifyContent: 'flex-start', border: 'none', background: 'transparent', color: 'inherit', display: 'flex', alignItems: 'center', gap: '12px' }}
-            >
-              <IconComponent iconName={page.icon} size={28} image={page.image} />
-              <span>{page.label}</span>
-            </button>
-          ))}
-        </div>
-
-        {isFinanceAdmin && (
-          <>
-            <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--sidebar-muted)', fontWeight: '600', marginBottom: '8px', letterSpacing: '0.05em' }}>SENTINEL</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '20px' }}>
-              {fraudPages.map(page => (
-                <button
-                  key={page.id}
-                  onClick={() => { onPageChange(page.id); setMobileMenuOpen(false); }}
-                  className={`nav-item ${currentPage === page.id ? 'active' : ''}`}
-                  style={{ justifyContent: 'flex-start', border: 'none', background: 'transparent', color: 'inherit', display: 'flex', alignItems: 'center', gap: '12px' }}
-                >
-                  <IconComponent iconName={page.icon} size={28} />
-                  <span>{page.label}</span>
-                </button>
-              ))}
-              <a href="/Fraud.html" target="_blank" className="nav-item" style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '12px' }} onClick={() => setMobileMenuOpen(false)}>
-                <ShieldAlert size={28} />
-                SENTINEL Console
-              </a>
-            </div>
-          </>
-        )}
-
-        <div style={{ borderTop: '1px solid var(--sidebar-border)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <button onClick={() => { onLogout(); setMobileMenuOpen(false); }} className="nav-item" style={{ justifyContent: 'flex-start', border: 'none', color: 'var(--color-danger)' }}>
-            <LogOut size={28} />
-            <span>Sign Out</span>
-          </button>
-        </div>
+        <span style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 500 }}>
+          {PAGE_LABELS[currentPage] || 'Dashboard'}
+        </span>
       </div>
     </>
   );
@@ -358,7 +412,6 @@ function ProtectedRoute({ children, token, user }) {
 
 function MainApp() {
   const [currentPage, setCurrentPage] = useState('dashboard');
-  const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [authView, setAuthView] = useState('landing'); // 'landing', 'login', 'register'
 
@@ -452,17 +505,16 @@ function MainApp() {
         currentPage={currentPage}
         onPageChange={setCurrentPage}
         onLogout={handleLogout}
-        isMobileMenuOpen={isMobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
       />
-      <main className={`main-content ${isSidebarOpen ? '' : 'is-collapsed'}`} style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}>
+      <main className={`main-content ${isSidebarOpen ? '' : 'is-collapsed'}`} style={{ paddingBottom: 'calc(72px + env(safe-area-inset-bottom, 0px))' }}>
         {renderPage()}
       </main>
       <BottomNav
         currentPage={currentPage}
-        onPageChange={(id) => { setCurrentPage(id); setMobileMenuOpen(false); }}
+        onPageChange={setCurrentPage}
+        onLogout={handleLogout}
         isAdmin={user?.role === 'admin'}
       />
     </>
