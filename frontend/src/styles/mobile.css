@@ -547,3 +547,97 @@
     min-height: 44px;
   }
 }
+
+/* ── 31. LANDING PAGE MOBILE STYLES ──────────────────────── */
+@media (max-width: 768px) {
+  .landing-page .lp-header {
+    padding: 0 20px !important;
+  }
+  .landing-page .lp-nav {
+    display: none !important; /* Hide navigation links on mobile */
+  }
+  .landing-page .lp-hero {
+    grid-template-columns: 1fr !important;
+    gap: 32px !important;
+    padding: 40px 20px 20px !important;
+    text-align: center;
+  }
+  .landing-page .lp-hero-content {
+    align-items: center !important;
+  }
+  .landing-page .lp-hero-title {
+    font-size: 2rem !important;
+    line-height: 1.2 !important;
+  }
+  .landing-page .lp-hero-actions {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 12px !important;
+  }
+  .landing-page .lp-hero-actions button {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+  .landing-page .lp-hero-image img {
+    width: 100% !important;
+    height: auto !important;
+  }
+  .landing-page .lp-stats {
+    flex-direction: column !important;
+    gap: 20px !important;
+    padding: 24px !important;
+  }
+  .landing-page .lp-pillars-grid {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+    padding: 0 20px !important;
+  }
+  .landing-page .lp-split {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+  }
+  .landing-page .lp-split-reverse {
+    display: flex !important;
+    flex-direction: column-reverse !important;
+  }
+  .landing-page .lp-testimonials-grid {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+    padding: 0 20px !important;
+  }
+  .landing-page .lp-footer-grid {
+    grid-template-columns: 1fr !important;
+    gap: 32px !important;
+    padding: 40px 20px !important;
+  }
+  .landing-page .lp-section {
+    padding: 60px 0 !important;
+  }
+}
+
+/* ── 32. JOBS PAGE MOBILE STYLES ─────────────────────────── */
+@media (max-width: 768px) {
+  .jobs-hero {
+    padding: 32px 20px !important;
+    text-align: center;
+  }
+  .jobs-hero-title {
+    font-size: 1.8rem !important;
+  }
+  .jobs-search-row {
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+  .jobs-select-input {
+    min-width: 100% !important;
+    width: 100% !important;
+  }
+  .jobs-grid {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+  .jobs-filter-container {
+    padding: 16px !important;
+  }
+}
+
