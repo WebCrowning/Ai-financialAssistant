@@ -1073,10 +1073,10 @@ export default function ChatbotAnalytics({ user, token }) {
   const userDisplayName = user?.display_name || user?.email?.split('@')[0] || 'User';
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="container">
       {/* Header */}
-      <header style={styles.header}>
-        <div style={styles.headerLeft}>
+      <header style={styles.header} className="header">
+        <div style={styles.headerLeft} className="header-left">
           <div style={styles.headerIconWrapper}>
             <i className="fas fa-brain" style={{ color: COLORS.white, fontSize: '24px' }}></i>
           </div>
@@ -1085,7 +1085,7 @@ export default function ChatbotAnalytics({ user, token }) {
             <p style={styles.subtitle}>Advanced expenditure analytics powered by intelligent insights</p>
           </div>
         </div>
-        <div style={styles.headerRight}>
+        <div style={styles.headerRight} className="header-right">
           <button 
             onClick={handleClearChat}
             style={styles.clearHistoryButton}
@@ -1106,9 +1106,9 @@ export default function ChatbotAnalytics({ user, token }) {
         </div>
       </header>
 
-      <div style={styles.mainGrid}>
+      <div style={styles.mainGrid} className="main-grid">
         {/* Chat / Insights Section */}
-        <div style={styles.chatContainer}>
+        <div style={styles.chatContainer} className="chat-container">
           {/* Tabs */}
           <div style={styles.tabsContainer}>
             <button
@@ -1137,7 +1137,7 @@ export default function ChatbotAnalytics({ user, token }) {
           <div style={styles.contentArea}>
             {activeTab === 'chat' ? (
               <>
-                <div style={styles.messagesContainer}>
+                <div style={styles.messagesContainer} className="messages-container">
                   {messages.map(msg => (
                     <div key={msg.id} style={{
                       ...styles.messageWrapper,
@@ -1148,10 +1148,13 @@ export default function ChatbotAnalytics({ user, token }) {
                           <i className="fas fa-robot" style={{ fontSize: '16px', color: COLORS.white }}></i>
                         </div>
                       )}
-                      <div style={{
-                        ...styles.messageBubble,
-                        ...(msg.type === 'user' ? styles.messageBubbleUser : styles.messageBubbleBot)
-                      }}>
+                      <div 
+                        className={`message-bubble ${msg.type === 'user' ? 'message-bubble-user' : 'message-bubble-bot'}`}
+                        style={{
+                          ...styles.messageBubble,
+                          ...(msg.type === 'user' ? styles.messageBubbleUser : styles.messageBubbleBot)
+                        }}
+                      >
                         <div style={styles.messageText}>
                           {renderCleanMessageContent(msg.content)}
                         </div>
@@ -1173,7 +1176,10 @@ export default function ChatbotAnalytics({ user, token }) {
                       <div style={styles.avatarBot}>
                         <i className="fas fa-robot" style={{ fontSize: '16px', color: COLORS.white }}></i>
                       </div>
-                      <div style={{...styles.messageBubble, ...styles.messageBubbleBot, ...styles.typingBubble}}>
+                      <div 
+                        className="message-bubble message-bubble-bot typing-bubble"
+                        style={{...styles.messageBubble, ...styles.messageBubbleBot, ...styles.typingBubble}}
+                      >
                         <div style={styles.typingDots}>
                           <div style={styles.typingDot}></div>
                           <div style={styles.typingDot}></div>
@@ -1368,7 +1374,7 @@ export default function ChatbotAnalytics({ user, token }) {
         </div>
 
         {/* Sidebar */}
-        <div style={styles.sidebar}>
+        <div style={styles.sidebar} className="sidebar">
           {/* File Upload Widget */}
           <div style={styles.widgetCard}>
             <h3 style={styles.widgetTitle}>
@@ -2135,6 +2141,11 @@ if (typeof document !== 'undefined') {
       @media (max-width: 1024px) {
         .main-grid {
           grid-template-columns: 1fr !important;
+          height: auto !important;
+          gap: 16px !important;
+        }
+        .chat-container {
+          height: 500px !important;
         }
         .sidebar {
           flex-direction: row !important;
@@ -2150,6 +2161,7 @@ if (typeof document !== 'undefined') {
         .header {
           flex-direction: column !important;
           text-align: center !important;
+          padding: 16px !important;
         }
         .header-left {
           flex-direction: column !important;
@@ -2157,12 +2169,17 @@ if (typeof document !== 'undefined') {
         .header-right {
           flex-wrap: wrap !important;
           justify-content: center !important;
+          width: 100% !important;
+        }
+        .header-right > * {
+          flex: 1 1 auto !important;
+          justify-content: center !important;
         }
         .message-bubble {
           max-width: 90% !important;
         }
         .container {
-          padding: 16px !important;
+          padding: 12px !important;
         }
       }
     `;
