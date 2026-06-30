@@ -4,8 +4,8 @@ require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 // If SUPABASE_URL and SUPABASE_KEY are present, we operate in Supabase mode.
 // Otherwise we fall back to MySQL mode (current behavior).
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE;
 const IS_SUPABASE_MODE = !!(SUPABASE_URL && SUPABASE_KEY);
 
 let pool;

@@ -6,9 +6,9 @@ require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 // SUPABASE_URL
 // SUPABASE_KEY (anon/public) - optional
 // SUPABASE_SERVICE_ROLE_KEY - recommended for server-side access (bypasses RLS)
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_KEY;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE;
 
 if (!SUPABASE_URL) {
   console.warn('[supabaseClient] Missing SUPABASE_URL. Supabase disabled.');

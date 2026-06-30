@@ -22,8 +22,8 @@ app.use(cors());
 app.use(express.json());
 
 // Create uploads directory if not exists
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
+const uploadsDir = process.env.VERCEL ? require('os').tmpdir() : path.join(__dirname, 'uploads');
+if (!process.env.VERCEL && !fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 app.use('/uploads', express.static(uploadsDir));
@@ -2601,6 +2601,10 @@ app.get('*', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`FinVision server running on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`FinVision server running on port ${PORT}`);
+  });
+}
+
+module.exports = app;
