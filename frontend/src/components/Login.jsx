@@ -40,14 +40,49 @@ export default function Login({ onLoginSuccess, initialIsLogin = true, onBackToL
         const user = data.user;
         if (!user) throw new Error('Login succeeded but user data is missing.');
 
-        // Store token/user for frontend usage
+        // Fetch user from public.users to get their integer ID
+        let dbUser = null;
+        const { data: dbUserResult, error: dbUserErr } = await supabase
+          .from('users')
+          .select('*')
+          .eq('email', email)
+          .maybeSingle();
+
+        if (dbUserResult) {
+          dbUser = dbUserResult;
+        } else {
+          // If no row exists (e.g. registered externally or email mismatch), sync/create now
+          const { data: insertResult, error: insertErr } = await supabase
+            .from('users')
+            .insert({
+              email,
+              password: 'supabase-auth-managed',
+              role: user.user_metadata?.role || 'user',
+              monthly_income: user.user_metadata?.monthly_income || 0,
+              guardian_mode: 1,
+              display_name: email.split('@')[0]
+            })
+            .select()
+            .single();
+          if (insertErr) throw insertErr;
+          dbUser = insertResult;
+        }
+
+        // Store token/user for frontend usage using integer ID
         localStorage.setItem('token', accessToken || 'fallback-token');
         localStorage.setItem('user', JSON.stringify({
-          id: user.id,
+          id: dbUser.id, // INTEGER ID
           email: user.email,
-          role: user.user_metadata?.role || 'user',
-          guardian_mode: user.user_metadata?.guardian_mode ?? 1
+          role: dbUser.role || 'user',
+          guardian_mode: dbUser.guardian_mode ?? 1,
+          monthly_income: dbUser.monthly_income || 0,
+          display_name: dbUser.display_name || '',
+          profile_image: dbUser.profile_image || '',
+          supabase_uid: user.id
         }));
+        
+        localStorage.setItem('userId', dbUser.id);
+        localStorage.setItem('user_id', dbUser.id);
 
         if (typeof onLoginSuccess === 'function') {
           onLoginSuccess({ email: user.email }, accessToken);
@@ -68,7 +103,23 @@ export default function Login({ onLoginSuccess, initialIsLogin = true, onBackToL
         });
         if (error) throw error;
 
-        // If email confirmations are enabled, session might be null.
+        // Sync new user details to public.users table immediately
+        if (data.user) {
+          const { error: insertErr } = await supabase
+            .from('users')
+            .insert({
+              email,
+              password: 'supabase-auth-managed',
+              role,
+              monthly_income: parseFloat(monthlyIncome) || 0,
+              guardian_mode: 1,
+              display_name: email.split('@')[0]
+            });
+          if (insertErr) {
+            console.error('Error syncing user details to public database:', insertErr);
+          }
+        }
+
         setError(data.user ? 'Account created. Please confirm your email (if confirmation is enabled).' : 'Account created.');
       }
     } catch (err) {

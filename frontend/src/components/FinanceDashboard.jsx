@@ -6,6 +6,7 @@ import {
   DollarSign, Percent, BarChart3, Target,
   Receipt, Plus, Eye, MoreVertical
 } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 
 // Professional color system
 const COLORS = {
@@ -52,21 +53,18 @@ export default function FinanceDashboard({ user, token }) {
 
   const fetchDashboardData = async () => {
     try {
-      const headers = { 'Authorization': `Bearer ${token}` };
+      const userId = user?.id;
+      if (!userId) return;
 
-      const [expRes, incRes, budRes] = await Promise.all([
-        fetch('/api/expenses', { headers }),
-        fetch('/api/income', { headers }),
-        fetch('/api/budgets', { headers })
+      const [expResult, incResult, budResult] = await Promise.all([
+        supabase.from('expenses').select('*').eq('user_id', userId).order('date', { ascending: false }).order('id', { ascending: false }),
+        supabase.from('income').select('*').eq('user_id', userId).order('logged_at', { ascending: false }),
+        supabase.from('budgets').select('*').eq('user_id', userId)
       ]);
 
-      const expensesData = await expRes.json();
-      const incomesData = await incRes.json();
-      const budgetsData = await budRes.json();
-
-      const expenses = Array.isArray(expensesData) ? expensesData : [];
-      const incomes = Array.isArray(incomesData) ? incomesData : [];
-      const budgets = Array.isArray(budgetsData) ? budgetsData : [];
+      const expenses = Array.isArray(expResult.data) ? expResult.data : [];
+      const incomes = Array.isArray(incResult.data) ? incResult.data : [];
+      const budgets = Array.isArray(budResult.data) ? budResult.data : [];
 
       const monthlyIncome = incomes.reduce((sum, inc) => sum + parseFloat(inc.amount), 0);
       const monthlyExpenses = expenses.reduce((sum, exp) => sum + parseFloat(exp.amount), 0);

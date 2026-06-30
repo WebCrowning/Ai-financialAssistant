@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { DollarSign, Wallet, ShieldAlert, Sliders, AlertTriangle } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 
 export default function SpendingOverview({ expenses, budgets, token, onRefresh, monthlyIncome }) {
   const [category, setCategory] = useState('Food');
@@ -23,21 +24,40 @@ export default function SpendingOverview({ expenses, budgets, token, onRefresh, 
     setSuccess('');
 
     try {
-      const response = await fetch('/api/budgets', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          category,
-          limit_amount: parseFloat(limitAmount)
-        })
-      });
+      const userId = JSON.parse(localStorage.getItem('user') || 'null')?.id;
+      if (!userId) throw new Error('User not authenticated');
+      if (!supabase) throw new Error('Supabase client not initialized');
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to update budget limit');
+      // Check if a budget limit already exists for this category and user
+      const { data: existing, error: findErr } = await supabase
+        .from('budgets')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('category', category)
+        .maybeSingle();
+
+      if (findErr) throw findErr;
+
+      let resultError = null;
+      if (existing) {
+        const { error } = await supabase
+          .from('budgets')
+          .update({ limit_amount: parseFloat(limitAmount) })
+          .eq('id', existing.id);
+        resultError = error;
+      } else {
+        const { error } = await supabase
+          .from('budgets')
+          .insert({
+            user_id: userId,
+            category,
+            limit_amount: parseFloat(limitAmount)
+          });
+        resultError = error;
+      }
+
+      if (resultError) {
+        throw resultError;
       }
 
       setSuccess(`Updated budget limit for ${category}`);

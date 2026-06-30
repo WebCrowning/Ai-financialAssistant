@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Wallet, TrendingDown, CreditCard, RefreshCw, ArrowRight, Clock, Building2, Smartphone, Wifi } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 
 const ACCOUNT_ICONS = {
   'Main Bank Account': Building2,
@@ -25,18 +26,64 @@ export default function Accounts({ token }) {
     fetchAccounts();
   }, [token]);
 
+  const user = React.useMemo(() => {
+    try {
+      const u = localStorage.getItem('user');
+      return u ? JSON.parse(u) : null;
+    } catch {
+      return null;
+    }
+  }, [token]);
+
   const fetchAccounts = async () => {
     try {
       setLoading(true);
-      const headers = { 'Authorization': `Bearer ${token}` };
-      const [accountsRes, expRes] = await Promise.all([
-        fetch('/api/accounts', { headers }),
-        fetch('/api/expenses', { headers })
+      const userId = user?.id;
+      if (!userId) return;
+
+      const [expResult, depResult] = await Promise.all([
+        supabase.from('expenses').select('*').eq('user_id', userId).order('date', { ascending: false }).order('id', { ascending: false }),
+        supabase.from('deposits').select('*').eq('user_id', userId).eq('status', 'completed')
       ]);
-      const accountsData = await accountsRes.json();
-      const expData = await expRes.json();
-      if (accountsRes.ok) setAccounts(accountsData);
-      if (expRes.ok) setAllExpenses(expData);
+
+      const expenses = expResult.data || [];
+      const deposits = depResult.data || [];
+
+      const accountBases = {
+        'Main Bank Account': 125500,
+        'MTN MoMo': 45200,
+        'Orange Money': 30000,
+        'Virtual Card': 50000
+      };
+
+      const providerMap = {
+        'mtn': 'MTN MoMo',
+        'orange': 'Orange Money',
+        'airtel': 'Airtel Money',
+        'vodafone': 'Vodafone Cash'
+      };
+
+      const accountsData = Object.keys(accountBases).map(accountName => {
+        const accountExpenses = expenses.filter(e => (e.account || 'Main Bank Account') === accountName);
+        const totalSpent = accountExpenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+
+        const accountDeposits = deposits.filter(d => (providerMap[d.provider] || 'MTN MoMo') === accountName);
+        const totalDeposited = accountDeposits.reduce((sum, d) => sum + parseFloat(d.amount || 0), 0);
+
+        const balance = accountBases[accountName] + totalDeposited - totalSpent;
+        return {
+          name: accountName,
+          baseBalance: accountBases[accountName],
+          totalDeposited,
+          totalSpent,
+          balance,
+          transactionCount: accountExpenses.length + accountDeposits.length,
+          recentTransactions: accountExpenses.slice(0, 5)
+        };
+      });
+
+      setAccounts(accountsData);
+      setAllExpenses(expenses);
     } catch (err) {
       console.error('Error fetching accounts:', err);
     } finally {

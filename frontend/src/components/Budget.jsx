@@ -126,29 +126,48 @@ export default function Budget({ token }) {
     }
 
     try {
-      const response = await fetch('/api/budgets', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          category: newBudget.category,
-          limit_amount: parseFloat(newBudget.limit)
-        })
-      });
-
-      if (response.ok) {
-        showAlert(`Budget limit of CFA ${parseFloat(newBudget.limit).toLocaleString()} set for ${newBudget.category}`);
-        setNewBudget({ category: 'Food', limit: '' });
-        setShowAddBudget(false);
-        fetchBudgetData();
-      } else {
-        showAlert('Failed to save budget', 'error');
+      if (!userId) {
+        showAlert('User not authenticated', 'error');
+        return;
       }
+
+      // Check if a budget already exists for this category and user
+      const { data: existing, error: findErr } = await supabase
+        .from('budgets')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('category', newBudget.category)
+        .maybeSingle();
+
+      if (findErr) throw findErr;
+
+      let resultError = null;
+      if (existing) {
+        const { error } = await supabase
+          .from('budgets')
+          .update({ limit_amount: parseFloat(newBudget.limit) })
+          .eq('id', existing.id);
+        resultError = error;
+      } else {
+        const { error } = await supabase
+          .from('budgets')
+          .insert({
+            user_id: userId,
+            category: newBudget.category,
+            limit_amount: parseFloat(newBudget.limit)
+          });
+        resultError = error;
+      }
+
+      if (resultError) throw resultError;
+
+      showAlert(`Budget limit of CFA ${parseFloat(newBudget.limit).toLocaleString()} set for ${newBudget.category}`);
+      setNewBudget({ category: 'Food', limit: '' });
+      setShowAddBudget(false);
+      fetchBudgetData();
     } catch (err) {
       console.error(err);
-      showAlert('An error occurred', 'error');
+      showAlert(err.message || 'An error occurred', 'error');
     }
   };
 
@@ -156,16 +175,17 @@ export default function Budget({ token }) {
     if (!window.confirm(`Delete budget for ${category}?`)) return;
     
     try {
-      const response = await fetch(`/api/budgets/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const { error } = await supabase
+        .from('budgets')
+        .delete()
+        .eq('id', id);
 
-      if (response.ok) {
-        showAlert(`Budget for ${category} deleted`);
-        fetchBudgetData();
-      }
+      if (error) throw error;
+
+      showAlert(`Budget for ${category} deleted`);
+      fetchBudgetData();
     } catch (err) {
+      console.error(err);
       showAlert('Failed to delete budget', 'error');
     }
   };

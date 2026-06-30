@@ -12,6 +12,7 @@ import GoalTracker from './GoalTracker';
 import IncomeLogger from './IncomeLogger';
 import AIAssistant from './AIAssistant';
 import ReportGenerator from './ReportGenerator';
+import { supabase } from '../supabaseClient';
 
 export default function UserDashboard({ user, token, onLogout }) {
   const [activeTab, setActiveTab] = useState('overview');
@@ -41,28 +42,52 @@ export default function UserDashboard({ user, token, onLogout }) {
   // Fetch all databases
   const fetchAllUserData = async () => {
     try {
-      const headers = { 'Authorization': `Bearer ${token}` };
-      
-      const expRes = await fetch('/api/expenses', { headers });
-      const expData = await expRes.json();
-      if (expRes.ok) setExpenses(expData);
+      const userId = user?.id;
+      if (!userId) return;
 
-      const budRes = await fetch('/api/budgets', { headers });
-      const budData = await budRes.json();
-      if (budRes.ok) setBudgets(budData);
+      // 1. Fetch expenses
+      const { data: expensesData, error: expErr } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('user_id', userId)
+        .order('date', { ascending: false })
+        .order('id', { ascending: false });
+      if (!expErr && expensesData) setExpenses(expensesData);
 
-      const goalRes = await fetch('/api/goals', { headers });
-      const goalData = await goalRes.json();
-      if (goalRes.ok) setGoals(goalData);
+      // 2. Fetch budgets
+      const { data: budgetsData, error: budErr } = await supabase
+        .from('budgets')
+        .select('*')
+        .eq('user_id', userId);
+      if (!budErr && budgetsData) setBudgets(budgetsData);
 
-      const incRes = await fetch('/api/income', { headers });
-      const incData = await incRes.json();
-      if (incRes.ok) setIncomes(incData);
+      // 3. Fetch goals
+      const { data: goalsData, error: goalErr } = await supabase
+        .from('goals')
+        .select('*')
+        .eq('user_id', userId);
+      if (!goalErr && goalsData) setGoals(goalsData);
 
-      // Re-sync user info
-      const meRes = await fetch('/api/auth/me', { headers });
-      const meData = await meRes.json();
-      if (meRes.ok) setUserProfile(meData);
+      // 4. Fetch income
+      const { data: incomeData, error: incErr } = await supabase
+        .from('income')
+        .select('*')
+        .eq('user_id', userId)
+        .order('logged_at', { ascending: false });
+      if (!incErr && incomeData) setIncomes(incomeData);
+
+      // 5. Fetch user profile settings
+      const { data: meData, error: meErr } = await supabase
+        .from('users')
+        .select('id, email, role, monthly_income, guardian_mode, display_name, profile_image')
+        .eq('id', userId)
+        .maybeSingle();
+      if (!meErr && meData) {
+        setUserProfile(meData);
+        // Also sync local storage user profile
+        const localUser = JSON.parse(localStorage.getItem('user') || '{}');
+        localStorage.setItem('user', JSON.stringify({ ...localUser, ...meData }));
+      }
     } catch (err) {
       console.error('Error fetching user dashboard data:', err);
     }
@@ -80,37 +105,132 @@ export default function UserDashboard({ user, token, onLogout }) {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/expenses', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          amount: parseFloat(quickAmount),
-          category: quickCategory,
-          description: quickDesc,
-          date: new Date().toISOString().split('T')[0],
-          is_subscription: quickIsSub
-        })
-      });
+      const userId = user?.id;
+      if (!userId) throw new Error('User not authenticated');
 
-      const data = await response.json();
+      const amountVal = parseFloat(quickAmount);
+      const isSub = quickIsSub;
+      const descVal = quickDesc;
+      const categoryVal = quickCategory;
+      const dateVal = new Date().toISOString().split('T')[0];
+
+      // 1. Fetch user details for Guardian blocking & Monthly income checks
+      const { data: userData, error: userErr } = await supabase
+        .from('users')
+        .select('monthly_income, guardian_mode')
+        .eq('id', userId)
+        .single();
+      if (userErr) throw userErr;
+
+      // 2. Fetch category budget to check overspending
+      const { data: budgetData, error: budgetErr } = await supabase
+        .from('budgets')
+        .select('limit_amount')
+        .eq('user_id', userId)
+        .eq('category', categoryVal)
+        .maybeSingle();
       
-      if (!response.ok) {
-        if (data.refused) {
-          setRefusedMessage(data.message);
+      const categoryLimit = budgetData ? budgetData.limit_amount : null;
+
+      // 3. Fetch current monthly expenses
+      const startOfMonth = `${dateVal.substring(0, 7)}-01`;
+      const year = parseInt(dateVal.substring(0, 4));
+      const month = parseInt(dateVal.substring(5, 7));
+      const lastDay = new Date(year, month, 0).getDate();
+      const endOfMonth = `${dateVal.substring(0, 7)}-${String(lastDay).padStart(2, '0')}`;
+
+      const { data: monthlyExpensesData, error: sumErr } = await supabase
+        .from('expenses')
+        .select('amount')
+        .eq('user_id', userId)
+        .gte('date', startOfMonth)
+        .lte('date', endOfMonth);
+      if (sumErr) throw sumErr;
+
+      const currentMonthTotal = (monthlyExpensesData || []).reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
+      const newMonthTotal = currentMonthTotal + amountVal;
+
+      // Check Guardian refusal
+      let isUnusual = 0;
+      if (isSub) {
+        if (amountVal > 50.00 || descVal.toLowerCase().includes('unused') || descVal.toLowerCase().includes('fitness')) {
+          isUnusual = 1;
+        }
+      }
+
+      const budgetExceeded = categoryLimit && (newMonthTotal > categoryLimit);
+      const incomeExceeded = newMonthTotal > parseFloat(userData.monthly_income);
+
+      if (userData.guardian_mode === 1) {
+        if ((isSub && isUnusual) || (categoryLimit && (amountVal > categoryLimit * 1.5))) {
+          // Log User Activity in Supabase
+          await supabase
+            .from('user_activities')
+            .insert({
+              user_id: userId,
+              action: 'Transaction Refused',
+              details: `Guardian blocked unusual transaction: $${amountVal} for ${descVal}`
+            });
+
+          setRefusedMessage(`Guardian System Refused: Unusual subscription or extreme overspending detected ($${amountVal} for ${descVal}). You can disable Guardian Mode in Settings to bypass this constraint.`);
+          setIsSubmitting(false);
           return;
         }
-        throw new Error(data.message || 'Error creating expense');
+      }
+
+      // Insert expense
+      const { data: insertData, error: insertErr } = await supabase
+        .from('expenses')
+        .insert({
+          user_id: userId,
+          amount: amountVal,
+          category: categoryVal,
+          description: descVal || '',
+          date: dateVal,
+          is_subscription: isSub ? 1 : 0,
+          is_unusual: isUnusual,
+          account: 'Main Bank Account'
+        })
+        .select();
+
+      if (insertErr) throw insertErr;
+
+      // Log activity
+      await supabase
+        .from('user_activities')
+        .insert({
+          user_id: userId,
+          action: 'Log Expense',
+          details: `Added expense: $${amountVal} in ${categoryVal}`
+        });
+
+      // Compile alerts
+      const alerts = [];
+      if (incomeExceeded) {
+        alerts.push({
+          type: 'income_exceeded',
+          message: `Warning: Your total monthly expenses ($${newMonthTotal.toFixed(2)}) now exceed your monthly income ($${parseFloat(userData.monthly_income).toFixed(2)})!`
+        });
+      }
+      if (budgetExceeded) {
+        alerts.push({
+          type: 'budget_exceeded',
+          message: `Alert: You spent more than your allocated $${categoryLimit} budget limit for category: ${categoryVal}!`
+        });
+      }
+      if (isSub && isUnusual) {
+        alerts.push({
+          type: 'unusual_subscription',
+          message: `Guardian: Unusual or duplicate subscription logged ($${amountVal} for ${descVal}). Consider canceling.`
+        });
       }
 
       setQuickAmount('');
       setQuickDesc('');
       setQuickIsSub(false);
-      
-      if (data.alerts && data.alerts.length > 0) {
-        setExpenseAlerts(data.alerts);
+
+      if (alerts.length > 0) {
+        setExpenseAlerts(alerts);
       }
 
       fetchAllUserData();
@@ -124,22 +244,33 @@ export default function UserDashboard({ user, token, onLogout }) {
   const handleUpdateIncomeLimit = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('/api/auth/settings', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ monthly_income: parseFloat(newIncomeVal) })
-      });
+      const userId = user?.id;
+      if (!userId) return;
 
-      if (response.ok) {
-        setUserProfile(prev => ({ ...prev, monthly_income: newIncomeVal }));
-        setShowSettingsModal(false);
-        fetchAllUserData();
-      }
+      const incomeVal = parseFloat(newIncomeVal);
+
+      const { error: updateErr } = await supabase
+        .from('users')
+        .update({ monthly_income: incomeVal })
+        .eq('id', userId);
+
+      if (updateErr) throw updateErr;
+
+      // Log activity
+      await supabase
+        .from('user_activities')
+        .insert({
+          user_id: userId,
+          action: 'Update Settings',
+          details: `Updated expected monthly income to $${incomeVal}`
+        });
+
+      setUserProfile(prev => ({ ...prev, monthly_income: newIncomeVal }));
+      setShowSettingsModal(false);
+      fetchAllUserData();
     } catch (err) {
       console.error(err);
+      alert(err.message || 'Error updating settings');
     }
   };
 

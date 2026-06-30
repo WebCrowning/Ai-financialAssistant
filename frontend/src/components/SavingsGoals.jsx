@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
 
 // Font Awesome CDN
 // Add to index.html: <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -49,19 +50,32 @@ export default function SavingsGoals({ token }) {
   const [selectedGoal, setSelectedGoal] = useState(null);
   const [fundAmount, setFundAmount] = useState('');
 
+  const user = React.useMemo(() => {
+    try {
+      const u = localStorage.getItem('user');
+      return u ? JSON.parse(u) : null;
+    } catch {
+      return null;
+    }
+  }, [token]);
+
   useEffect(() => {
     fetchGoals();
-  }, [token]);
+  }, [user]);
 
   const fetchGoals = async () => {
     try {
       setLoading(true);
-      const headers = { 'Authorization': `Bearer ${token}` };
-      const res = await fetch('/api/goals', { headers });
-      const data = await res.json();
-      if (res.ok) {
-        setGoals(data);
-      }
+      const userId = user?.id;
+      if (!userId) return;
+
+      const { data, error } = await supabase
+        .from('goals')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (error) throw error;
+      setGoals(data || []);
     } catch (err) {
       console.error('Error fetching savings goals:', err);
       showAlert('Failed to load goals', 'error');
@@ -86,54 +100,83 @@ export default function SavingsGoals({ token }) {
     }
 
     try {
-      const response = await fetch('/api/goals', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          name: newGoal.name,
-          target_amount: parseFloat(newGoal.target),
-          current_amount: 0.00,
-          deadline: newGoal.deadline || null
-        })
-      });
+      const userId = user?.id;
+      if (!userId) throw new Error('User not authenticated');
 
-      if (response.ok) {
-        showAlert(`Savings goal "${newGoal.name}" created successfully!`);
-        setNewGoal({ name: '🏠 Buy a House', target: '', deadline: '', icon: 'fa-home' });
-        setShowAddGoal(false);
-        fetchGoals();
-      } else {
-        showAlert('Failed to create goal', 'error');
-      }
+      const targetVal = parseFloat(newGoal.target);
+      const deadlineVal = newGoal.deadline || null;
+
+      const { error: insertErr } = await supabase
+        .from('goals')
+        .insert({
+          user_id: userId,
+          name: newGoal.name,
+          target_amount: targetVal,
+          current_amount: 0.00,
+          deadline: deadlineVal
+        });
+
+      if (insertErr) throw insertErr;
+
+      // Log activity
+      await supabase
+        .from('user_activities')
+        .insert({
+          user_id: userId,
+          action: 'Create Goal',
+          details: `Created goal "${newGoal.name}" with target $${targetVal}`
+        });
+
+      showAlert(`Savings goal "${newGoal.name}" created successfully!`);
+      setNewGoal({ name: '🏠 Buy a House', target: '', deadline: '', icon: 'fa-home' });
+      setShowAddGoal(false);
+      fetchGoals();
     } catch (err) {
       console.error(err);
-      showAlert('An error occurred', 'error');
+      showAlert(err.message || 'An error occurred', 'error');
     }
   };
 
   const handleFundGoal = async (id, amount) => {
     try {
-      const response = await fetch(`/api/goals/${id}/add`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ amount })
-      });
+      const userId = user?.id;
+      if (!userId) throw new Error('User not authenticated');
 
-      if (response.ok) {
-        showAlert(`Added CFA ${amount.toLocaleString()} to savings target!`);
-        fetchGoals();
-        setSelectedGoal(null);
-        setFundAmount('');
-      }
+      // Fetch the current goal amount first
+      const { data: goalData, error: getErr } = await supabase
+        .from('goals')
+        .select('current_amount')
+        .eq('id', id)
+        .eq('user_id', userId)
+        .single();
+      if (getErr) throw getErr;
+
+      const newAmount = parseFloat(goalData.current_amount || 0) + parseFloat(amount);
+
+      const { error: updateErr } = await supabase
+        .from('goals')
+        .update({ current_amount: newAmount })
+        .eq('id', id)
+        .eq('user_id', userId);
+
+      if (updateErr) throw updateErr;
+
+      // Log activity
+      await supabase
+        .from('user_activities')
+        .insert({
+          user_id: userId,
+          action: 'Fund Goal',
+          details: `Added CFA ${amount} to goal ID: ${id}`
+        });
+
+      showAlert(`Added CFA ${amount.toLocaleString()} to savings target!`);
+      fetchGoals();
+      setSelectedGoal(null);
+      setFundAmount('');
     } catch (err) {
       console.error(err);
-      showAlert('Failed to add funds', 'error');
+      showAlert(err.message || 'Failed to add funds', 'error');
     }
   };
 
@@ -141,15 +184,28 @@ export default function SavingsGoals({ token }) {
     if (!window.confirm('Delete this savings goal?')) return;
     
     try {
-      const response = await fetch(`/api/goals/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const userId = user?.id;
+      if (!userId) throw new Error('User not authenticated');
 
-      if (response.ok) {
-        showAlert('Savings goal deleted.');
-        fetchGoals();
-      }
+      const { error: deleteErr } = await supabase
+        .from('goals')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', userId);
+
+      if (deleteErr) throw deleteErr;
+
+      // Log activity
+      await supabase
+        .from('user_activities')
+        .insert({
+          user_id: userId,
+          action: 'Delete Goal',
+          details: `Deleted goal ID: ${id}`
+        });
+
+      showAlert('Savings goal deleted.');
+      fetchGoals();
     } catch (err) {
       console.error(err);
       showAlert('Failed to delete goal', 'error');
