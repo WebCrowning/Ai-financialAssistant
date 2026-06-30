@@ -792,7 +792,13 @@ export default function ChatbotAnalytics({ user, token }) {
       const openRouterApiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
 
       if (!openRouterApiKey) {
-        addMessage('bot', 'I apologize, but the AI service is not properly configured. Please contact support.');
+        addMessage('bot',
+          '⚠️ **AI Service Not Configured**\n\n' +
+          'The environment variable `VITE_OPENROUTER_API_KEY` is missing or empty.\n\n' +
+          '**To fix this:**\n' +
+          '• **Locally:** Add `VITE_OPENROUTER_API_KEY=sk-or-v1-...` to `frontend/.env`, then restart the dev server.\n' +
+          '• **Vercel:** Go to Project Settings → Environment Variables → add `VITE_OPENROUTER_API_KEY` → Redeploy.'
+        );
         return;
       }
 
@@ -981,12 +987,33 @@ export default function ChatbotAnalytics({ user, token }) {
             response: analysis
           });
       } else {
-        const errorData = await openRouterResponse.json().catch(() => ({}));
-        addMessage('bot', errorData.message || 'I encountered an error analyzing your request. Please check your AI service configuration.');
+        let errorData = {};
+        try { errorData = await openRouterResponse.json(); } catch (_) {}
+        const statusCode = openRouterResponse.status;
+        const apiError = errorData?.error?.message || errorData?.message || 'No additional details returned.';
+        addMessage('bot',
+          `❌ **OpenRouter API Error (HTTP ${statusCode})**\n\n` +
+          `**Reason:** ${apiError}\n\n` +
+          (statusCode === 401
+            ? '**Fix:** Your `VITE_OPENROUTER_API_KEY` is invalid or expired. Generate a new key at https://openrouter.ai/keys and update your environment variables.'
+            : statusCode === 429
+            ? '**Fix:** You have exceeded your OpenRouter rate limit or credit balance. Check your usage at https://openrouter.ai/activity.'
+            : statusCode === 402
+            ? '**Fix:** Your OpenRouter account has insufficient credits. Top up at https://openrouter.ai/credits.'
+            : '**Fix:** Check the OpenRouter status page at https://status.openrouter.ai or verify your API key configuration.')
+        );
       }
     } catch (error) {
       console.error('Error in send message:', error);
-      addMessage('bot', "Sorry, I'm unable to connect to the AI service. Please try again later.");
+      addMessage('bot',
+        `🔌 **Connection Error**\n\n` +
+        `**Details:** ${error?.message || 'Unknown error'}\n\n` +
+        'This is usually caused by a network issue or a browser CORS policy blocking the request to OpenRouter.\n\n' +
+        '**To fix this:**\n' +
+        '• Check your internet connection.\n' +
+        '• Open the browser DevTools (F12) → Network tab → find the failed request to `openrouter.ai` and inspect the error.\n' +
+        '• Ensure `VITE_OPENROUTER_API_KEY` is correctly set in your environment.'
+      );
     } finally {
       setLoading(false);
       setIsTyping(false);
