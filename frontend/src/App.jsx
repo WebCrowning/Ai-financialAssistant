@@ -361,16 +361,6 @@ function Navigation({ user, currentPage, onPageChange, onLogout, isSidebarOpen, 
         </button>
       )}
 
-      {/* Mobile Top Header – branding + current page name only */}
-      <div className="mobile-header no-print">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <img src={logoImage} alt="FinVision" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
-          <strong style={{ fontSize: '1.05rem', color: '#fff', letterSpacing: '0.02em' }}>FinVision</strong>
-        </div>
-        <span style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 500 }}>
-          {PAGE_LABELS[currentPage] || 'Dashboard'}
-        </span>
-      </div>
     </>
   );
 }

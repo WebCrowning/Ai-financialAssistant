@@ -34,7 +34,7 @@
   .main-content {
     margin-left: 0 !important;
     width: 100% !important;
-    padding-top: calc(60px + 1rem) !important;
+    padding-top: 0 !important;
     padding-left: 1rem !important;
     padding-right: 1rem !important;
     padding-bottom: 2rem !important;
